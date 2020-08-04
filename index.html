@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Drive API Quickstart</title>
+  <title>GPlayer Playlists</title>
   <meta charset="utf-8" />
   <script src="jquery-3.5.1.js"></script>
   <style type='text/css'>
@@ -25,6 +25,7 @@
       min-height: 20%;
       background-color: white;
       border-bottom: 5px solid gray;
+      align-content: center;
     }
 
     #left,
@@ -64,19 +65,48 @@
       list-style-type: decimal;
       border-bottom: 1px solid black;
     }
+
+    #progress {
+      width: 80%;
+    }
+
+    #playerPanel {
+      display: grid;
+      grid-template-columns: 1fr 3fr 1fr;
+    }
+
+    .playerButton {
+      display: inline-block;
+      height: 5vh;
+      width: 10%;
+    }
   </style>
 </head>
 
 <body>
   <dev id='wapper'>
     <div id='mainPanel'>
-      <div class='content'>test</div>
       <button id="authorize_button" style="display: none;">Authorize</button>
       <button id="signout_button" style="display: none;">Sign Out</button>
-      <label id="currentTimeLabel">00:00</label>
-      <input type="range" min="0" max="100" value="0" class="slider" id="progress">
-      <label id="durationLabel">00:00</label>
-      <button id="play_button" style="display: none;">load</button>
+      <p style="text-align: center;">
+        <label id="currentTimeLabel">00:00</label>
+        <input type="range" min="0" max="100" value="0" class="slider" id="progress">
+        <label id="durationLabel">00:00</label>
+      </p>
+      <div id="playerPanel">
+        <p></p>
+        <ul style="text-align: center;">
+          <button class="playerButton" id="prevButton">|<</button>
+          <button class="playerButton" id="playButton">load</button>
+          <button class="playerButton" id="nextButton">>|</button>
+        </ul>
+        <div style="display: flex; flex-direction: row; align-items: center;">
+          <span >Volume</span>
+          <input style="flex: 1;" type="range" min="0" max="100" value="100" id="volumeInputer"/>
+          <span style="margin-right: 40px; width: 40px; text-align: center;" id="volumeLabel">100</span>
+        </div>
+      </div>
+
     </div>
     <div id="left">
       <ul id="currentSongList" class="itemsList">
@@ -109,8 +139,12 @@
 
     var authorizeButton = document.getElementById('authorize_button');
     var signoutButton = document.getElementById('signout_button');
-    var playButton = document.getElementById('play_button');
+    var playButton = document.getElementById('playButton');
+    var prevButton = document.getElementById('prevButton')
+    var nextButton = document.getElementById('nextButton')
     var progress = document.getElementById('progress');
+    var volumeInputer = document.getElementById('volumeInputer')
+    var volumeLabel = document.getElementById('volumeLabel')
     var currentTimeLabel = document.getElementById('currentTimeLabel');
     var durationLabel = document.getElementById('durationLabel');
     var currentSongList = document.getElementById('currentSongList');
@@ -119,6 +153,7 @@
     var audioContext = new AudioContext()
     audioContext.close()
     var source
+    var volumeGain
     var isPlaying = false
     var startTime = audioContext.currentTime
     var playlists
@@ -160,6 +195,8 @@
         authorizeButton.onclick = handleAuthClick;
         signoutButton.onclick = handleSignoutClick;
         playButton.onclick = handlePlayClick;
+        prevButton.onclick = handlePrevClick;
+        nextButton.onclick = handleNextClick;
       }, function (error) {
         appendPre(JSON.stringify(error, null, 2));
       });
@@ -169,7 +206,6 @@
       if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        playButton.style.display = 'block';
         //appendPre(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
         if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
           console.log("got accessToken "/* + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token*/);
@@ -272,7 +308,11 @@
     progress.addEventListener('change', function (event) {
       console.log('seek to ' + progress.value);
       seek(progress.value);
-    });
+    })
+    volumeInputer.addEventListener('change', function (event) {
+      volumeLabel.textContent = volumeInputer.value
+      volumeGain.gain.value = volumeInputer.value / 100.0
+    })
     var isSliding = false;
     progress.addEventListener('mousedown', function (event) {
       //console.log('seek down');
@@ -285,7 +325,7 @@
 
     var progressTimer = setInterval(function () {
       if (!isSliding && isPlaying) {
-        var currentTime = getCurrentTime();
+        let currentTime = getCurrentTime();
         progress.value = currentTime;
         currentTimeLabel.textContent = formatedTime(currentTime);
       }
@@ -294,15 +334,25 @@
     function seek(time) {
       source.onended = null;
       source.stop();
-      var newSource = audioContext.createBufferSource();
-      newSource.buffer = source.buffer;
-      newSource.connect(audioContext.destination);
-      newSource.start(0, time);
-      source = newSource;
-      source.onended = handSourceEnded;
+      setupAudioSource(source.buffer, time)
       startTime = audioContext.currentTime - progress.value;
     }
 
+    function prev() {
+      console.log('prev')
+      if (displayPlaylist === currentPlaylist) {
+        currentSongList.children[playitemIndex].style.backgroundColor = 'white'
+      }
+      playitemIndex -= 1
+      if (playitemIndex < 0) {
+        playitemIndex = currentPlaylist.list.length - 1
+      }
+      let playitem = getPlayitem(playitemIndex)
+      if (displayPlaylist === currentPlaylist) {
+        currentSongList.children[playitemIndex].style.backgroundColor = 'orange'
+      }
+      loadMusic(playitem.gdID)
+    }
     function next() {
       console.log('next')
       if (displayPlaylist === currentPlaylist) {
@@ -320,9 +370,9 @@
       return audioContext.currentTime - startTime;
     }
     function formatedTime(time) {
-      var hours = Math.floor(time / 3600);
-      var minutes = Math.floor((time - (hours * 3600)) / 60);
-      var seconds = Math.floor(time - (hours * 3600) - (minutes * 60));
+      let hours = Math.floor(time / 3600);
+      let minutes = Math.floor((time - (hours * 3600)) / 60);
+      let seconds = Math.floor(time - (hours * 3600) - (minutes * 60));
 
       if (hours == 0) {
         hours = "";
@@ -345,10 +395,6 @@
       let newIndex = playitemIndex + 1
       if (newIndex >= currentPlaylist.list.length) {
         newIndex = 0
-        if (randomMode == true) {
-          console.log('playlist ended shuffle and reset')
-          shuffleSonglist()
-        }
       }
       return newIndex
     }
@@ -384,14 +430,17 @@
         loadMusic(playitem.gdID)
       }
     }
+    function handlePrevClick(event) {
+      prev()
+    }
+    function handleNextClick(event) {
+      next()
+    }
 
     function handleAudioData(response) {
-      var playAudio = function (buffer) {
+      let playAudio = function (buffer) {
         console.log('audio duration = ' + buffer.duration);
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0, 0);
-        source.onended = handSourceEnded;
+        setupAudioSource(buffer, 0)
         startTime = audioContext.currentTime;
         isPlaying = true;
         progress.max = buffer.duration;
@@ -400,7 +449,7 @@
         playButton.textContent = 'pause';
         startPreload()
       }
-      var handleError = function (error) {
+      let handleError = function (error) {
         console.log("audio handleError");
         audioContext.close();
         isPlaying = false;
@@ -411,13 +460,25 @@
       audioContext.decodeAudioData(response, playAudio, handleError);
     }
 
+    function setupAudioSource(buffer, startTime) {
+      let newSource = audioContext.createBufferSource()
+      newSource.buffer = buffer;
+      let gain = audioContext.createGain()
+      gain.gain.value = volumeInputer.value / 100.0
+      newSource.connect(gain)
+      gain.connect(audioContext.destination)
+      newSource.start(0, startTime);
+      newSource.onended = handSourceEnded
+      source = newSource
+      volumeGain = gain
+    }
+
     function loadMusic(fileId) {
       isPlaying = false;
       if (audioContext.state != 'closed') {
         audioContext.close();
       }
       audioContext = new AudioContext();
-      source = audioContext.createBufferSource();
 
       //console.log('preloadResponse = ' + preloadResponse + ' preloadFileId = ' + preloadFileId + ' fileId = ' + fileId)
       if (preloadResponse != null && preloadFileId == fileId) {
@@ -434,8 +495,8 @@
       preloadRequest = null
       preloadResponse = null
       preloadFileId = null
-      var accessToken = gapi.auth.getToken().access_token;
-      var xhr = new XMLHttpRequest();
+      let accessToken = gapi.auth.getToken().access_token;
+      let xhr = new XMLHttpRequest();
       xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       xhr.responseType = 'arraybuffer';
