@@ -1,537 +1,637 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Drive API Quickstart</title>
-    <meta charset="utf-8" />
-    <script src="jquery-3.5.1.js"></script>
-  </head>
-  <body>
-    <!--
-    <audio controls="controls" id="player">
-      <source id="audioSource" src="https://drive.google.com/uc?export=download&id=1hQ6O0dog7SoDax9poGG21bML56pYvWNv">
-      </source>
-      <source id="audioSource" src="https://drive.google.com/uc?export=download&id=1NBjYH3rxfL7Hf7B0OAjCYn8oxLSx8Mzy">
-      </source>
-      
-      Your browser does not support HTML5 audio.
-    </audio>-->
 
-    <!--Add buttons to initiate auth sequence and sign out-->
-    <button id="authorize_button" style="display: none;">Authorize</button>
-    <button id="signout_button" style="display: none;">Sign Out</button>
-    <label id="currentTimeLabel">00:00</label>
-    <input type="range" min="0" max="100" value="0" class="slider" id="progress">
-    <label id="durationLabel">00:00</label>
-    <button id="play_button" style="display: none;">load</button>
+<head>
+  <title>Drive API Quickstart</title>
+  <meta charset="utf-8" />
+  <script src="jquery-3.5.1.js"></script>
+  <style type='text/css'>
+    body,
+    div {
+      margin: 0;
+      border: 0 none;
+      padding: 0;
+    }
 
-    <ul id="currentSongList">
-    </ul>
+    html,
+    body,
+    #wrapper {
+      height: 100%;
+      min-height: 100%;
+    }
 
-    <pre id="content" style="white-space: pre-wrap;"></pre>
+    #mainPanel {
+      height: 20%;
+      min-height: 20%;
+      background-color: white;
+      border-bottom: 5px solid gray;
+    }
 
-    <script type="text/javascript">
+    #left,
+    #right {
+      height: 80%;
+      min-height: 80%;
+    }
 
-      // Client ID and API key from the Developer Console
-      var CLIENT_ID = '423335313231-giakunp57g1k5mavo5geh2uosq19p7n6.apps.googleusercontent.com';
-      var API_KEY = 'AIzaSyBAaSYAjPtehAICYMErbTdmQifmxJaLkx0';
+    #wrapper {
+      margin: 0 auto;
+      overflow: hidden;
+      width: 960px;
+    }
 
-      // Array of API discovery doc URLs for APIs used by the quickstart
-      var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+    #left {
+      background: white;
+      float: left;
+      width: 75%;
+      display: flex;
+    }
 
-      // Authorization scopes required by the API; multiple scopes can be
-      // included, separated by spaces.
-      var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+    #right {
+      background: white;
+      margin-left: 25%;
+    }
 
-      var authorizeButton = document.getElementById('authorize_button');
-      var signoutButton = document.getElementById('signout_button');
-      var playButton = document.getElementById('play_button');
-      var progress = document.getElementById('progress');
-      var currentTimeLabel = document.getElementById('currentTimeLabel');
-      var durationLabel = document.getElementById('durationLabel');
-      var currentSongList = document.getElementById('currentSongList');
+    .itemsList {
+      overflow: auto;
+      display: block;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+    }
 
-      var audioContext = new AudioContext()
-      audioContext.close()
-      var source
-      var isPlaying = false
-      var startTime = audioContext.currentTime
-      var playlists
-      var playlistIndex = 0
-      var playitemIndex = 0
-      var randomMode = true
+    .playitem {
+      color: purple;
+      list-style-type: decimal;
+      border-bottom: 1px solid black;
+    }
+  </style>
+</head>
 
-      var preloadFileId
-      var preloadRequest
-      var preloadResponse
-
-
-      /**
-       *  On load, called to load the auth2 library and API client library.
-       */
-      function handleClientLoad() {
-        gapi.load('client:auth2', initClient);
-      }
-
-      /**
-       *  Initializes the API client library and sets up sign-in state
-       *  listeners.
-       */
-      function initClient() {
-        gapi.client.init({
-          apiKey: API_KEY,
-          clientId: CLIENT_ID,
-          discoveryDocs: DISCOVERY_DOCS,
-          scope: SCOPES
-        }).then(function () {
-          // Listen for sign-in state changes.
-          gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-
-          // Handle the initial sign-in state.
-          updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-          authorizeButton.onclick = handleAuthClick;
-          signoutButton.onclick = handleSignoutClick;
-          playButton.onclick = handlePlayClick;
-          
-          loadPlaylists(function(response, error) {
-            //console.log(response);
-            if (error != null) {
-              console.log('playlists load file, ' + error);
-            }
-            else {
-              //console.log('response = ' + response);
-              var json = JSON.parse(response)
-              playlists = json
-              displaySonglist()
-            }
-          });
+<body>
+  <dev id='wapper'>
+    <div id='mainPanel'>
+      <div class='content'>test</div>
+      <button id="authorize_button" style="display: none;">Authorize</button>
+      <button id="signout_button" style="display: none;">Sign Out</button>
+      <label id="currentTimeLabel">00:00</label>
+      <input type="range" min="0" max="100" value="0" class="slider" id="progress">
+      <label id="durationLabel">00:00</label>
+      <button id="play_button" style="display: none;">load</button>
+    </div>
+    <div id="left">
+      <ul id="currentSongList" class="itemsList">
+      </ul>
+    </div>
+    <div id="right">
+      <ul id="playlistsList" class="itemList">
+      </ul>
+    </div>
 
 
-        }, function(error) {
-          appendPre(JSON.stringify(error, null, 2));
+  </dev>
+
+
+
+  <pre id="content" style="white-space: pre-wrap;"></pre>
+
+  <script type="text/javascript">
+
+    // Client ID and API key from the Developer Console
+    var CLIENT_ID = '423335313231-giakunp57g1k5mavo5geh2uosq19p7n6.apps.googleusercontent.com';
+    var API_KEY = 'AIzaSyBAaSYAjPtehAICYMErbTdmQifmxJaLkx0';
+
+    // Array of API discovery doc URLs for APIs used by the quickstart
+    var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+
+    // Authorization scopes required by the API; multiple scopes can be
+    // included, separated by spaces.
+    var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+
+    var authorizeButton = document.getElementById('authorize_button');
+    var signoutButton = document.getElementById('signout_button');
+    var playButton = document.getElementById('play_button');
+    var progress = document.getElementById('progress');
+    var currentTimeLabel = document.getElementById('currentTimeLabel');
+    var durationLabel = document.getElementById('durationLabel');
+    var currentSongList = document.getElementById('currentSongList');
+    var playlistsList = document.getElementById('playlistsList')
+
+    var audioContext = new AudioContext()
+    audioContext.close()
+    var source
+    var isPlaying = false
+    var startTime = audioContext.currentTime
+    var playlists
+    var playitemIndex = -1
+    var currentPlaylist
+    var displayPlaylist
+    var displayPlaylistIndex
+    var randomMode = true
+
+    var preloadFileId
+    var preloadRequest
+    var preloadResponse
+
+
+    /**
+     *  On load, called to load the auth2 library and API client library.
+     */
+    function handleClientLoad() {
+      gapi.load('client:auth2', initClient);
+    }
+
+    /**
+     *  Initializes the API client library and sets up sign-in state
+     *  listeners.
+     */
+    function initClient() {
+      gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+      }).then(function () {
+        // Listen for sign-in state changes.
+        gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+        //return
+        // Handle the initial sign-in state.
+        updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+        authorizeButton.onclick = handleAuthClick;
+        signoutButton.onclick = handleSignoutClick;
+        playButton.onclick = handlePlayClick;
+      }, function (error) {
+        appendPre(JSON.stringify(error, null, 2));
+      });
+    }
+
+    function updateSigninStatus(isSignedIn) {
+      if (isSignedIn) {
+        authorizeButton.style.display = 'none';
+        signoutButton.style.display = 'block';
+        playButton.style.display = 'block';
+        //appendPre(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
+        if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
+          console.log("got accessToken "/* + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token*/);
+        }
+        loadPlaylists(function (response, error) {
+          //console.log(response);
+          if (error != null) {
+            console.log('playlists load file, ' + error);
+          }
+          else {
+            //console.log('response = ' + response);
+            var json = JSON.parse(response)
+            playlists = json
+            displayLists()
+          }
         });
-      }
 
-      function displaySonglist() {
-        $(currentSongList).empty()
-        var playlist = playlists[playlistIndex];
-        console.log('playlist name = ' + playlist['name']);
-        if (randomMode) {
-          playlist.list = shuffle(playlist.list)
+      } else {
+        authorizeButton.style.display = 'block';
+        signoutButton.style.display = 'none';
+      }
+    }
+
+    function displayLists() {
+      $(playlistsList).empty()
+      for (let i = 0; i < playlists.length; i++) {
+        let playlist = playlists[i];
+        let li = document.createElement("li")
+        li.className = 'playitem'
+        li.appendChild(document.createTextNode(playlist.name))
+        playlistsList.appendChild(li)
+        li.onclick = function () {
+          playlistListClick(i)
         }
-        for (let j = 0; j < playlist.list.length; j++) {
-          var playitem = playlist.list[j]
-          var li = document.createElement("li");
-          var pathArray = playitem.path.split("\\");
-          var fileName = pathArray[pathArray.length - 1];
-          li.appendChild(document.createTextNode(fileName));
-          currentSongList.appendChild(li);
-          li.onclick = function() {
-            currentSongClick(j);
+        li.onmouseover = function () {
+          li.style.backgroundColor = 'yellow'
+        }
+        li.onmouseout = function () {
+          li.style.backgroundColor = 'white'
+        }
+      }
+      displayPlaylistIndex = 0
+      displayPlaylist = playlists[displayPlaylistIndex]
+      displaySonglist()
+    }
+
+    function displaySonglist() {
+      $(currentSongList).empty()
+      let playlist = displayPlaylist
+      for (let j = 0; j < playlist.list.length; j++) {
+        var playitem = playlist.list[j]
+        let li = document.createElement("li")
+        li.className = 'playitem'
+        var pathArray = playitem.path.split("\\")
+        var fileName = pathArray[pathArray.length - 1]
+        li.appendChild(document.createTextNode(fileName))
+        currentSongList.appendChild(li);
+        if (displayPlaylist === currentPlaylist && j == playitemIndex) {
+          li.style.backgroundColor = 'orange'
+        }
+        li.onclick = function () {
+          currentSongClick(j)
+        }
+        li.onmouseover = function () {
+          if (j != playitemIndex) {
+            li.style.backgroundColor = 'yellow'
+          }
+        }
+        li.onmouseout = function () {
+          if (j != playitemIndex) {
+            li.style.backgroundColor = 'white'
           }
         }
       }
+    }
 
-      function currentSongClick(index) {
-        console.log(index)
-        playitemIndex = index
-        let playitem = playlists[playlistIndex].list[playitemIndex]
-        loadMusic(playitem.gdID)
+    function playlistListClick(index) {
+      console.log("playlist index " + index + "clicked")
+      displayPlaylistIndex = index
+      displayPlaylist = playlists[index]
+      displaySonglist()
+    }
+
+    function currentSongClick(index) {
+      console.log("playitem index " + index + "clicked")
+      if (playitemIndex < currentSongList.children.length && playitemIndex >= 0) {
+        currentSongList.children[playitemIndex].style.backgroundColor = 'white'
       }
+      currentPlaylist = displayPlaylist
+      playitemIndex = index
+      let playitem = currentPlaylist.list[playitemIndex]
+      currentSongList.children[playitemIndex].style.backgroundColor = 'orange'
+      loadMusic(playitem.gdID)
+    }
 
-      self.addEventListener('fetch', function(event) {
-        console.log('Handling fetch event for', event.request.url);
-      });
+    self.addEventListener('fetch', function (event) {
+      console.log('Handling fetch event for', event.request.url);
+    });
 
-      progress.addEventListener('change', function(event) {
-        console.log('seek to ' + progress.value);
-        seek(progress.value);
-      });
-      var isSliding = false;
-      progress.addEventListener('mousedown', function(event) {
-        //console.log('seek down');
-        isSliding = true;
-      });
-      progress.addEventListener('mouseup', function(event) {
-        //console.log('seek up');
-        isSliding = false;
-      });
+    progress.addEventListener('change', function (event) {
+      console.log('seek to ' + progress.value);
+      seek(progress.value);
+    });
+    var isSliding = false;
+    progress.addEventListener('mousedown', function (event) {
+      //console.log('seek down');
+      isSliding = true;
+    });
+    progress.addEventListener('mouseup', function (event) {
+      //console.log('seek up');
+      isSliding = false;
+    });
 
-      var progressTimer = setInterval(function() {
-        if (!isSliding && isPlaying) {
-          var currentTime = getCurrentTime();
-          progress.value = currentTime;
-          currentTimeLabel.textContent = formatedTime(currentTime);
+    var progressTimer = setInterval(function () {
+      if (!isSliding && isPlaying) {
+        var currentTime = getCurrentTime();
+        progress.value = currentTime;
+        currentTimeLabel.textContent = formatedTime(currentTime);
+      }
+    }, 500);
+
+    function seek(time) {
+      source.onended = null;
+      source.stop();
+      var newSource = audioContext.createBufferSource();
+      newSource.buffer = source.buffer;
+      newSource.connect(audioContext.destination);
+      newSource.start(0, time);
+      source = newSource;
+      source.onended = handSourceEnded;
+      startTime = audioContext.currentTime - progress.value;
+    }
+
+    function next() {
+      console.log('next')
+      if (displayPlaylist === currentPlaylist) {
+        currentSongList.children[playitemIndex].style.backgroundColor = 'white'
+      }
+      playitemIndex = getNextPlayitemIndex()
+      let playitem = getPlayitem(playitemIndex)
+      if (displayPlaylist === currentPlaylist) {
+        currentSongList.children[playitemIndex].style.backgroundColor = 'orange'
+      }
+      loadMusic(playitem.gdID)
+    }
+
+    function getCurrentTime() {
+      return audioContext.currentTime - startTime;
+    }
+    function formatedTime(time) {
+      var hours = Math.floor(time / 3600);
+      var minutes = Math.floor((time - (hours * 3600)) / 60);
+      var seconds = Math.floor(time - (hours * 3600) - (minutes * 60));
+
+      if (hours == 0) {
+        hours = "";
+      }
+      else if (hours < 10) {
+        hours = "0" + hours + ":";
+      }
+      if (minutes < 10) { minutes = "0" + minutes; }
+      if (seconds < 10) { seconds = "0" + seconds; }
+      return hours + minutes + ':' + seconds;
+    }
+
+    function handSourceEnded(event) {
+      console.log('source ended');
+      audioContext.close();
+      isPlaying = false;
+      next()
+    }
+    function getNextPlayitemIndex() {
+      let newIndex = playitemIndex + 1
+      if (newIndex >= currentPlaylist.list.length) {
+        newIndex = 0
+        if (randomMode == true) {
+          console.log('playlist ended shuffle and reset')
+          shuffleSonglist()
         }
-      }, 500);
-
-      function seek(time) {
-        source.onended = null;
-        source.stop();
-        var newSource = audioContext.createBufferSource();
-        newSource.buffer = source.buffer;
-        newSource.connect(audioContext.destination);
-        newSource.start(0, time);
-        source = newSource;
-        source.onended = handSourceEnded;
-        startTime = audioContext.currentTime - progress.value;
       }
+      return newIndex
+    }
+    function getPlayitem(index) {
+      return currentPlaylist.list[index]
+    }
 
-      function next() {
-        console.log('next')
-        playitemIndex = getNextPlayitemIndex()
-        let playitem = getPlayitem(playitemIndex)
-        loadMusic(playitem.gdID)
+    function handlePlayClick(event) {
+      if (audioContext.state == 'suspended') {
+        console.log('audioContext suspended, try resume');
+        audioContext.resume();
+        playButton.textContent = 'pause';
+        isPlaying = true;
       }
-
-      function getCurrentTime() {
-        return audioContext.currentTime - startTime;
-      }
-      function formatedTime(time) {
-        var hours   = Math.floor(time / 3600);
-        var minutes = Math.floor((time - (hours * 3600)) / 60);
-        var seconds = Math.floor(time - (hours * 3600) - (minutes * 60));
-
-        if (hours == 0) {
-          hours = "";
-        }
-        else if (hours < 10) {
-          hours = "0" + hours + ":";
-        }
-        if (minutes < 10) {minutes = "0"+minutes;}
-        if (seconds < 10) {seconds = "0"+seconds;}
-        return hours + minutes + ':' + seconds;
-      }
-
-      function handSourceEnded(event) {
-        console.log('source ended');
-        audioContext.close();
+      else if (audioContext.state == 'running') {
+        console.log('audioContext running, try pause');
+        audioContext.suspend();
+        playButton.textContent = 'play';
         isPlaying = false;
-        next()
       }
-
-
-      function getNextPlayitemIndex() {
-        let newIndex = playitemIndex + 1
-        if (newIndex >= playlists[playlistIndex].list.length) {
-          newIndex = 0
-          if (randomMode == true) {
-            console.log('playlist ended shuffle and reset')
-            shuffleSonglist()
-          }
-        }
-        return newIndex
-      }
-      function getPlayitem(index) {
-        return playlists[playlistIndex].list[index]
-      }
-
-      function handlePlayClick(event) {
-        if (audioContext.state == 'suspended') {
-          console.log('audioContext suspended, try resume');
-          audioContext.resume();
-          playButton.textContent = 'pause';
-          isPlaying = true;
-        }
-        else if (audioContext.state == 'running') {
-          console.log('audioContext running, try pause');
-          audioContext.suspend();
-          playButton.textContent = 'play';
-          isPlaying = false;
-        }
-        else if (audioContext.state == 'closed') {
-          console.log('audioContext closed, try load');
-          loadMusic('1NBjYH3rxfL7Hf7B0OAjCYn8oxLSx8Mzy');
-        }
-      }
-
-      function handleAudioData(response) {
-        var playAudio = function(buffer) {
-          console.log('audio duration = ' + buffer.duration);
-          source.buffer = buffer;
-          source.connect(audioContext.destination);
-          source.start(0, 0);
-          source.onended = handSourceEnded;
-          startTime = audioContext.currentTime;
-          isPlaying = true;
-          progress.max = buffer.duration;
-          durationLabel.textContent = formatedTime(buffer.duration);
-          console.log('playAudio load succeseed');
-          playButton.textContent = 'pause';
-          startPreload()
-        }
-        var handleError = function(error) {
-          console.log("audio handleError");
-          audioContext.close();
-          isPlaying = false;
-          console.log('playAudio load failed');
-          playButton.textContent = 'load';
-          next()
-        }
-        audioContext.decodeAudioData(response, playAudio, handleError);
-      }
-
-      function loadMusic(fileId) {
-        isPlaying = false;
-        if (audioContext.state != 'closed') {
-          audioContext.close();
-        }
-        audioContext = new AudioContext();
-        source = audioContext.createBufferSource();
-        
-        //console.log('preloadResponse = ' + preloadResponse + ' preloadFileId = ' + preloadFileId + ' fileId = ' + fileId)
-        if (preloadResponse != null && preloadFileId == fileId) {
-          console.log('preload found')
-          handleAudioData(preloadResponse)
-          preloadResponse = null
-          preloadFileId = null
+      else if (audioContext.state == 'closed') {
+        currentPlaylist = displayPlaylist
+        if (currentPlaylist.length == 0) {
+          console.log('current playlist no music')
           return
         }
-        console.log('preload not found, start fetch')
-        if (preloadRequest != null) {
-          preloadRequest.abort()
+        if (playitemIndex >= currentPlaylist.list.length || playitemIndex < 0) {
+          playitemIndex = 0
         }
-        preloadRequest = null
+        console.log('audioContext closed, try load');
+        let playitem = currentPlaylist.list[playitemIndex]
+        currentSongList.children[playitemIndex].style.backgroundColor = 'orange'
+        loadMusic(playitem.gdID)
+      }
+    }
+
+    function handleAudioData(response) {
+      var playAudio = function (buffer) {
+        console.log('audio duration = ' + buffer.duration);
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0, 0);
+        source.onended = handSourceEnded;
+        startTime = audioContext.currentTime;
+        isPlaying = true;
+        progress.max = buffer.duration;
+        durationLabel.textContent = formatedTime(buffer.duration);
+        console.log('playAudio load succeseed');
+        playButton.textContent = 'pause';
+        startPreload()
+      }
+      var handleError = function (error) {
+        console.log("audio handleError");
+        audioContext.close();
+        isPlaying = false;
+        console.log('playAudio load failed');
+        playButton.textContent = 'load';
+        next()
+      }
+      audioContext.decodeAudioData(response, playAudio, handleError);
+    }
+
+    function loadMusic(fileId) {
+      isPlaying = false;
+      if (audioContext.state != 'closed') {
+        audioContext.close();
+      }
+      audioContext = new AudioContext();
+      source = audioContext.createBufferSource();
+
+      //console.log('preloadResponse = ' + preloadResponse + ' preloadFileId = ' + preloadFileId + ' fileId = ' + fileId)
+      if (preloadResponse != null && preloadFileId == fileId) {
+        console.log('preload found')
+        handleAudioData(preloadResponse)
         preloadResponse = null
         preloadFileId = null
-        var accessToken = gapi.auth.getToken().access_token;
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
-        xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = function() {
-          console.log("request onload");
-          handleAudioData(xhr.response)
-        };
-        xhr.onerror = function() {
-          console.log("request onerror");
-          isPlaying = false;
-          next()
-        };
-        xhr.send();
+        return
       }
-
-      function startPreload() {
-        let nextPlayitem = getPlayitem(getNextPlayitemIndex())
-        preloadMusic(nextPlayitem.gdID)
+      console.log('preload not found, start fetch')
+      if (preloadRequest != null) {
+        preloadRequest.abort()
       }
+      preloadRequest = null
+      preloadResponse = null
+      preloadFileId = null
+      var accessToken = gapi.auth.getToken().access_token;
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = function () {
+        console.log("request onload");
+        handleAudioData(xhr.response)
+      };
+      xhr.onerror = function () {
+        console.log("request onerror");
+        isPlaying = false;
+        next()
+      };
+      xhr.send();
+    }
 
-      function preloadMusic(fileId) {
-        console.log('preload ' + fileId)
-        var accessToken = gapi.auth.getToken().access_token;
-        preloadFileId = fileId
-        preloadRequest = new XMLHttpRequest();
-        preloadRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
-        preloadRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-        preloadRequest.responseType = 'arraybuffer';
-        preloadRequest.onload = function() {
-          console.log("preload onload");
-          preloadResponse = preloadRequest.response
-          preloadRequest = null
-        };
-        preloadRequest.onerror = function() {
-          console.log("preload onerror");
-          preloadRequest = null
-        };
-        preloadRequest.send();
-      }
+    function startPreload() {
+      let nextPlayitem = getPlayitem(getNextPlayitemIndex())
+      preloadMusic(nextPlayitem.gdID)
+    }
 
-      function loadPlaylists(callback) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1LiZwOqFiQgPWMKzTYwauZZShLGTcwsUv?alt=media');
-        //xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/11282-OZsAa6dXuiuC4AnCyKB9FxyffcD?alt=media');
-        //xhr.responseType = 'json';
-        var accessToken = gapi.auth.getToken().access_token;
-        xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-        xhr.onload = function() {
-          var status = xhr.status;
-          if (status === 200) {
-            callback(xhr.response, null);
-          } 
-          else {
-            callback(xhr.response, new Error('http error'));
-          }
-        };
-        xhr.onerror = function () {
-          callback(null, new Error('request failed'));
-        };
-        xhr.send();
-      }
+    function preloadMusic(fileId) {
+      console.log('preload ' + fileId)
+      var accessToken = gapi.auth.getToken().access_token;
+      preloadFileId = fileId
+      preloadRequest = new XMLHttpRequest();
+      preloadRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
+      preloadRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+      preloadRequest.responseType = 'arraybuffer';
+      preloadRequest.onload = function () {
+        console.log("preload onload");
+        preloadResponse = preloadRequest.response
+        preloadRequest = null
+      };
+      preloadRequest.onerror = function () {
+        console.log("preload onerror");
+        preloadRequest = null
+      };
+      preloadRequest.send();
+    }
 
-      function getURL(url, callback) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'json';
-        xhr.onload = function() {
-          var status = xhr.status;
-          if (status === 200) {
-            callback(xhr.response, null);
-          } 
-          else {
-            callback(xhr.response, new Error('http error'));
-          }
-        };
-        xhr.onerror = function () {
-          callback(null, new Error('request failed'));
-        };
-        xhr.send();
-      }
-
-      function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-          let j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
+    function loadPlaylists(callback) {
+      console.log('start loadPlaylists')
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1LiZwOqFiQgPWMKzTYwauZZShLGTcwsUv?alt=media');
+      //xhr.responseType = 'json';
+      var accessToken = gapi.auth.getToken().access_token;
+      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+      xhr.onload = function () {
+        var status = xhr.status;
+        if (status === 200) {
+          callback(xhr.response, null);
         }
-        return array
-      }
-
-
-/**
- * Download a file's content.
- *
- * @param {File} file Drive File instance.
- * @param {Function} callback Function to call when the request is complete.
- */
-function downloadFile() {
-    var accessToken = gapi.auth.getToken().access_token;
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1NBjYH3rxfL7Hf7B0OAjCYn8oxLSx8Mzy?alt=media');
-    xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-    //xhr.responseType = 'blob';
-    xhr.responseType = 'arraybuffer';
-
-    //var audioContext = new AudioContext();
-    //var source = audioContext.createBufferSource();
-
-    xhr.onload = function() {
-      console.log("request onload");
-      console.log(xhr.response);
-
-      var playAudio = function(buffer) {
-        if (source.buffer == null) {
-          source.buffer = buffer;
-          source.connect(audioContext.destination);
-          source.start(0);
+        else {
+          callback(xhr.response, new Error('http error'));
         }
+      };
+      xhr.onerror = function () {
+        callback(null, new Error('request failed'));
+      };
+      xhr.send();
+    }
+
+    function getURL(url, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'json';
+      xhr.onload = function () {
+        var status = xhr.status;
+        if (status === 200) {
+          callback(xhr.response, null);
+        }
+        else {
+          callback(xhr.response, new Error('http error'));
+        }
+      };
+      xhr.onerror = function () {
+        callback(null, new Error('request failed'));
+      };
+      xhr.send();
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
       }
-      var handleError = function(error) {
-        console.log("audio handleError");
-      }
-
-      audioContext.decodeAudioData(xhr.response, playAudio, handleError);
-
-      //var blob = xhr.response;
-      //saveFile(blob);
-    };
-    xhr.onerror = function() {
-      console.log("request onerror");
-    };
-    xhr.send();
-}
-function saveFile(blob) {
-		var fileName = 'Test.m4a'
-		var tempEl = document.createElement("a");
-    	document.body.appendChild(tempEl);
-    	tempEl.style = "display: none";
-        url = window.URL.createObjectURL(blob);
-        tempEl.href = url;
-        tempEl.download = fileName;
-        tempEl.click();
-		window.URL.revokeObjectURL(url);
-}
+      return array
+    }
 
 
-      /**
-       *  Called when the signed in status changes, to update the UI
-       *  appropriately. After a sign-in, the API is called.
-       */
-      function updateSigninStatus(isSignedIn) {
-        if (isSignedIn) {
-          authorizeButton.style.display = 'none';
-          signoutButton.style.display = 'block';
-          playButton.style.display = 'block';
-          //appendPre(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
-          if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
-            console.log("got accessToken "/* + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token*/);
+    /**
+     * Download a file's content.
+     *
+     * @param {File} file Drive File instance.
+     * @param {Function} callback Function to call when the request is complete.
+     */
+    function downloadFile() {
+      var accessToken = gapi.auth.getToken().access_token;
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1NBjYH3rxfL7Hf7B0OAjCYn8oxLSx8Mzy?alt=media');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+      //xhr.responseType = 'blob';
+      xhr.responseType = 'arraybuffer';
+
+      //var audioContext = new AudioContext();
+      //var source = audioContext.createBufferSource();
+
+      xhr.onload = function () {
+        console.log("request onload");
+        console.log(xhr.response);
+
+        var playAudio = function (buffer) {
+          if (source.buffer == null) {
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+            source.start(0);
           }
-          
+        }
+        var handleError = function (error) {
+          console.log("audio handleError");
+        }
 
-          /*
-          var player = document.getElementById('player');
-          var source = document.getElementById('audioSource');
-          //source.src = 'https://raw.githubusercontent.com/dohProject/DLCachePlayer/master/DLCachePlayerDemo/Sample/5.%20Birth.flac';
-          //source.scr = 'https://www.googleapis.com/drive/v3/files/1hQ6O0dog7SoDax9poGG21bML56pYvWNv?alt=media';
-          source.scr = 'https://drive.google.com/file/d/1KHyOzaHF2y43rhn0y_HHY2lMPiujk1Jt/view?usp=sharing';
-          player.addEventListener('fetch', function(event) {
-            console.log('fetch', event.request.url);
-          });
-          player.load();
-*/
-/*
-          var Req = new XMLHttpRequest(); 
-          Req.open('get', 'https://www.google.com', true);
-          
-          Req.send();
-          console.log("get google");*/
+        audioContext.decodeAudioData(xhr.response, playAudio, handleError);
 
-          //listFiles();
+        //var blob = xhr.response;
+        //saveFile(blob);
+      };
+      xhr.onerror = function () {
+        console.log("request onerror");
+      };
+      xhr.send();
+    }
+    function saveFile(blob) {
+      var fileName = 'Test.m4a'
+      var tempEl = document.createElement("a");
+      document.body.appendChild(tempEl);
+      tempEl.style = "display: none";
+      url = window.URL.createObjectURL(blob);
+      tempEl.href = url;
+      tempEl.download = fileName;
+      tempEl.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    /**
+     *  Sign in the user upon button click.
+     */
+    function handleAuthClick(event) {
+      gapi.auth2.getAuthInstance().signIn();
+    }
+
+    /**
+     *  Sign out the user upon button click.
+     */
+    function handleSignoutClick(event) {
+      gapi.auth2.getAuthInstance().signOut();
+    }
+
+    /**
+     * Append a pre element to the body containing the given message
+     * as its text node. Used to display the results of the API call.
+     *
+     * @param {string} message Text to be placed in pre element.
+     */
+    function appendPre(message) {
+      var pre = document.getElementById('content');
+      var textContent = document.createTextNode(message + '\n');
+      pre.appendChild(textContent);
+    }
+
+    /**
+     * Print files.
+     */
+    function listFiles() {
+      gapi.client.drive.files.list({
+        'pageSize': 10,
+        'fields': "nextPageToken, files(id, name)"
+      }).then(function (response) {
+        appendPre('Files:');
+        var files = response.result.files;
+        if (files && files.length > 0) {
+          for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            appendPre(file.name + ' (' + file.id + ')');
+          }
         } else {
-          authorizeButton.style.display = 'block';
-          signoutButton.style.display = 'none';
+          appendPre('No files found.');
         }
-      }
+      });
+    }
 
-      /**
-       *  Sign in the user upon button click.
-       */
-      function handleAuthClick(event) {
-        gapi.auth2.getAuthInstance().signIn();
-      }
+  </script>
 
-      /**
-       *  Sign out the user upon button click.
-       */
-      function handleSignoutClick(event) {
-        gapi.auth2.getAuthInstance().signOut();
-      }
-
-      /**
-       * Append a pre element to the body containing the given message
-       * as its text node. Used to display the results of the API call.
-       *
-       * @param {string} message Text to be placed in pre element.
-       */
-      function appendPre(message) {
-        var pre = document.getElementById('content');
-        var textContent = document.createTextNode(message + '\n');
-        pre.appendChild(textContent);
-      }
-
-      /**
-       * Print files.
-       */
-      function listFiles() {
-        gapi.client.drive.files.list({
-          'pageSize': 10,
-          'fields': "nextPageToken, files(id, name)"
-        }).then(function(response) {
-          appendPre('Files:');
-          var files = response.result.files;
-          if (files && files.length > 0) {
-            for (var i = 0; i < files.length; i++) {
-              var file = files[i];
-              appendPre(file.name + ' (' + file.id + ')');
-            }
-          } else {
-            appendPre('No files found.');
-          }
-        });
-      }
-
+  <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
+    onreadystatechange="if (this.readyState === 'complete') this.onload()">
     </script>
+</body>
 
-    <script async defer src="https://apis.google.com/js/api.js"
-      onload="this.onload=function(){};handleClientLoad()"
-      onreadystatechange="if (this.readyState === 'complete') this.onload()">
-    </script>
-  </body>
 </html>
