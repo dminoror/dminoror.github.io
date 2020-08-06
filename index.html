@@ -88,8 +88,13 @@
 <body>
   <dev id='wapper'>
     <div id='mainPanel'>
-      <button id="authorize_button" style="display: none;">Authorize</button>
-      <button id="signout_button" style="display: none;">Sign Out</button>
+      <div id='userPanel'>
+        <button id="authorize_button" style="display: none; float: left; width: 80px;">Authorize</button>
+        <button id="signout_button" style="display: none;float: left; width: 80px;">Sign Out</button>
+        <div style="text-align: center; margin-right: 80px;">
+          <label id="infoLabel">說明</label>
+        </div>
+      </div>
       <p style="text-align: center;">
         <label id="currentTimeLabel">00:00</label>
         <input type="range" min="0" max="100" value="0" class="slider" id="progress">
@@ -148,6 +153,7 @@
 
     var authorizeButton = document.getElementById('authorize_button');
     var signoutButton = document.getElementById('signout_button');
+    var infoLabel = document.getElementById('infoLabel')
     var playButton = document.getElementById('playButton');
     var prevButton = document.getElementById('prevButton')
     var nextButton = document.getElementById('nextButton')
@@ -166,7 +172,7 @@
     var source
     var volumeGain
     var isPlaying = false
-    var startTime = audioContext.currentTime
+    var startTime
     var playlists
     var playitemIndex = -1
     var currentPlaylist
@@ -178,14 +184,11 @@
     var displayPlayitemIndex
 
 
+    var currentFileId
     var currentRequest
     var preloadFileId
     var preloadRequest
     var preloadResponse
-
-    let getURLString = location.href
-    let url = new URL(getURLString)
-    console.log('gid = ' + url.searchParams.get('gid'))
 
     /**
      *  On load, called to load the auth2 library and API client library.
@@ -229,22 +232,44 @@
         if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
           console.log("got accessToken "/* + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token*/);
         }
-        loadPlaylists(function (response, error) {
-          //console.log(response);
-          if (error != null) {
-            console.log('playlists load file, ' + error);
-          }
-          else {
-            //console.log('response = ' + response);
-            var json = JSON.parse(response)
-            playlists = json
-            refreshLists()
-          }
-        });
+        infoLabel.textContent = '已登入'
 
+        fetchLocation()
       } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
+        infoLabel.textContent = '←請先登入 Google Drive'
+      }
+    }
+
+    function fetchLocation() {
+      let urlString = location.href
+      let url = new URL(urlString)
+      let gid = url.searchParams.get('gid')
+      if (gid != null) {
+        fetchFile(gid, function(response) {
+          console.log('response = ' + response)
+          let json = JSON.parse(response)
+          let mimeType = json.mimeType
+          if (mimeType != null) {
+            if (mimeType.includes('json')) {
+              loadPlaylists(gid)
+            }
+            else if (mimeType.includes('audio')) {
+              playlists = createNewPlaylist(json.name, gid)
+              refreshLists()
+            }
+            else {
+              console.log('unknown file type')
+            }
+          }
+          else {
+            console.log('gid get failed')
+          }
+        })
+      }
+      else {
+        console.log('gid not found')
       }
     }
 
@@ -571,6 +596,7 @@
       preloadRequest = null
       preloadResponse = null
       preloadFileId = null
+      currentFileId = fileId
       let accessToken = gapi.auth.getToken().access_token;
       currentRequest = new XMLHttpRequest();
       currentRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
@@ -592,6 +618,11 @@
 
     function startPreload() {
       let nextPlayitem = getPreloadPlayitem()
+      if (nextPlayitem.gdID == currentFileId) {
+        console.log('next fileId same to current do not preload')
+        preloadResponse = currentRequest.response
+        return
+      }
       preloadMusic(nextPlayitem.gdID)
     }
 
@@ -615,24 +646,26 @@
       preloadRequest.send();
     }
 
-    function loadPlaylists(callback) {
+    function loadPlaylists(fileId) {
       console.log('start loadPlaylists')
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1LiZwOqFiQgPWMKzTYwauZZShLGTcwsUv?alt=media');
+      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
       //xhr.responseType = 'json';
       var accessToken = gapi.auth.getToken().access_token;
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       xhr.onload = function () {
         var status = xhr.status;
         if (status === 200) {
-          callback(xhr.response, null);
+          let json = JSON.parse(xhr.response)
+          playlists = json
+          refreshLists()
         }
         else {
-          callback(xhr.response, new Error('http error'));
+
         }
       };
       xhr.onerror = function () {
-        callback(null, new Error('request failed'));
+
       };
       xhr.send();
     }
@@ -668,6 +701,13 @@
       return array
     }
 
+    function createNewPlaylist(path, fileId) {
+      let jsonString = '[{"name":"unnamed playlist","list":[{"path":"' + path + '","gdID":"' + fileId + '"}]}]'
+      console.log('jsonString = ' + jsonString)
+      let playlists = JSON.parse(jsonString)
+      return playlists
+    }
+
 
     /**
      * Download a file's content.
@@ -675,42 +715,26 @@
      * @param {File} file Drive File instance.
      * @param {Function} callback Function to call when the request is complete.
      */
-    function downloadFile() {
+    function fetchFile(fileId, callback) {
       var accessToken = gapi.auth.getToken().access_token;
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/1NBjYH3rxfL7Hf7B0OAjCYn8oxLSx8Mzy?alt=media');
+      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId);
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-      //xhr.responseType = 'blob';
-      xhr.responseType = 'arraybuffer';
-
-      //var audioContext = new AudioContext();
-      //var source = audioContext.createBufferSource();
-
       xhr.onload = function () {
         console.log("request onload");
-        console.log(xhr.response);
-
-        var playAudio = function (buffer) {
-          if (source.buffer == null) {
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            source.start(0);
-          }
+        if (callback != null) {
+          callback(xhr.response)
         }
-        var handleError = function (error) {
-          console.log("audio handleError");
-        }
-
-        audioContext.decodeAudioData(xhr.response, playAudio, handleError);
-
-        //var blob = xhr.response;
-        //saveFile(blob);
       };
       xhr.onerror = function () {
         console.log("request onerror");
+        if (callback != null) {
+          callback(new Error('request failed'))
+        }
       };
       xhr.send();
     }
+
     function saveFile(blob) {
       var fileName = 'Test.m4a'
       var tempEl = document.createElement("a");
