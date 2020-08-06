@@ -177,10 +177,15 @@
     var randomIndexArray
     var displayPlayitemIndex
 
+
+    var currentRequest
     var preloadFileId
     var preloadRequest
     var preloadResponse
 
+    let getURLString = location.href
+    let url = new URL(getURLString)
+    console.log('gid = ' + url.searchParams.get('gid'))
 
     /**
      *  On load, called to load the auth2 library and API client library.
@@ -557,25 +562,32 @@
       console.log('preload not found, start fetch')
       if (preloadRequest != null) {
         preloadRequest.abort()
+        preloadRequest = null
+      }
+      if (currentRequest != null) {
+        console.log('last current request not finish, abort it')
+        currentRequest.abort()
       }
       preloadRequest = null
       preloadResponse = null
       preloadFileId = null
       let accessToken = gapi.auth.getToken().access_token;
-      let xhr = new XMLHttpRequest();
-      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
-      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-      xhr.responseType = 'arraybuffer';
-      xhr.onload = function () {
+      currentRequest = new XMLHttpRequest();
+      currentRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
+      currentRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+      currentRequest.responseType = 'arraybuffer';
+      currentRequest.onload = function () {
         console.log("request onload");
-        handleAudioData(xhr.response)
+        handleAudioData(currentRequest.response)
+        currentRequest = null
       };
-      xhr.onerror = function () {
+      currentRequest.onerror = function () {
         console.log("request onerror");
+        currentRequest = null
         isPlaying = false;
         next(false)
       };
-      xhr.send();
+      currentRequest.send();
     }
 
     function startPreload() {
