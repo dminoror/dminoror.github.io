@@ -93,6 +93,7 @@
 
     .playerButton {
       display: inline-block;
+      text-align: center;
       height: 40px;
       width: 10%;
     }
@@ -210,12 +211,13 @@
     var randomIndexArray
     var displayPlayitemIndex
 
-
     var currentFileId
     var currentRequest
     var preloadFileId
     var preloadRequest
     var preloadResponse
+    var errorFetchIndex = 0
+    var errorFetchCount = 5
 
     /**
      *  On load, called to load the auth2 library and API client library.
@@ -269,6 +271,8 @@
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
         infoLabel.textContent = '←請登入 Google Drive'
+
+        fetchLocation()
       }
     }
 
@@ -278,8 +282,7 @@
       let gid = url.searchParams.get('gid')
       if (gid != null) {
         fetchFile(gid, function (response) {
-          console.log('response = ' + response)
-          let json = JSON.parse(response)
+          let json = response
           let mimeType = json.mimeType
           if (mimeType != null) {
             if (mimeType.includes('json')) {
@@ -580,6 +583,7 @@
         setupAudioSource(buffer, 0)
         startTime = audioContext.currentTime;
         isPlaying = true;
+        errorFetchIndex = 0
         progress.max = buffer.duration;
         durationLabel.textContent = formatedTime(buffer.duration);
         console.log('playAudio load succeseed');
@@ -596,7 +600,10 @@
           infoLabel.textContent = "沒有檔案訪問權限，請確認 Google Drive 身份"
         }
         else {
-          next(false)
+          errorFetchIndex += 1
+          if (errorFetchIndex < errorFetchCount) {
+            next(false)
+          }
         }
       }
       audioContext.decodeAudioData(response, playAudio, handleError);
@@ -643,8 +650,9 @@
       preloadResponse = null
       preloadFileId = null
       currentFileId = fileId
-      let accessToken = gapi.auth.getToken().access_token;
+
       currentRequest = new XMLHttpRequest();
+      let accessToken = gapi.auth.getToken().access_token;
       currentRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
       currentRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       currentRequest.responseType = 'arraybuffer';
@@ -657,7 +665,10 @@
         console.log("request onerror");
         currentRequest = null
         isPlaying = false;
-        next(false)
+        errorFetchIndex += 1
+        if (errorFetchIndex < errorFetchCount) {
+          next(false)
+        }
       };
       currentRequest.send();
     }
@@ -777,23 +788,11 @@
      * @param {Function} callback Function to call when the request is complete.
      */
     function fetchFile(fileId, callback) {
-      var accessToken = gapi.auth.getToken().access_token;
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId);
-      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-      xhr.onload = function () {
-        console.log("request onload");
-        if (callback != null) {
-          callback(xhr.response)
-        }
-      };
-      xhr.onerror = function () {
-        console.log("request onerror");
-        if (callback != null) {
-          callback(new Error('request failed'))
-        }
-      };
-      xhr.send();
+      gapi.client.drive.files.get({
+        'fileId': fileId
+      }).then(function (response) {
+        callback(response.result)
+      })
     }
 
     function saveFile(blob) {
