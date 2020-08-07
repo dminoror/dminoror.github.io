@@ -173,7 +173,7 @@
 
     // Authorization scopes required by the API; multiple scopes can be
     // included, separated by spaces.
-    var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+    var SCOPES = 'https://www.googleapis.com/auth/drive';
 
     var authorizeButton = document.getElementById('authorize_button');
     var signoutButton = document.getElementById('signout_button');
@@ -268,7 +268,7 @@
       } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
-        infoLabel.textContent = '←請先登入 Google Drive'
+        infoLabel.textContent = '←請登入 Google Drive'
       }
     }
 
@@ -288,6 +288,9 @@
             else if (mimeType.includes('audio')) {
               playlists = createNewPlaylist(json.name, gid)
               refreshLists()
+            }
+            else if (mimeType.includes('google-apps.folder')) {
+              loadGDFolder(json.name, gid)
             }
             else {
               console.log('unknown file type')
@@ -574,7 +577,6 @@
 
     function handleAudioData(response) {
       let playAudio = function (buffer) {
-        console.log('audio duration = ' + buffer.duration);
         setupAudioSource(buffer, 0)
         startTime = audioContext.currentTime;
         isPlaying = true;
@@ -585,12 +587,17 @@
         startPreload()
       }
       let handleError = function (error) {
-        console.log("audio handleError");
         audioContext.close();
         isPlaying = false;
         console.log('playAudio load failed');
         playButton.textContent = 'load';
-        next(false)
+
+        if (response.byteLength == 0) {
+          infoLabel.textContent = "沒有檔案訪問權限，請確認 Google Drive 身份"
+        }
+        else {
+          next(false)
+        }
       }
       audioContext.decodeAudioData(response, playAudio, handleError);
     }
@@ -739,6 +746,27 @@
       let jsonString = '[{"name":"unnamed playlist","list":[{"path":"' + path + '","gdID":"' + fileId + '"}]}]'
       let playlists = JSON.parse(jsonString)
       return playlists
+    }
+    function loadGDFolder(playlistName, gid) {
+      gapi.client.drive.files.list({
+        'q': "'" + gid + "' in parents"
+      }).then(function (response) {
+        playlists = [{
+          name: playlistName,
+          list: []
+        }]
+        for (let i = 0; i < response.result.files.length; i++) {
+          let file = response.result.files[i]
+          if (file.mimeType.includes('audio')) {
+            let playitem = {
+              path: response.result.files[i].name,
+              gdID: response.result.files[i].id
+            }
+            playlists[0].list.push(playitem)
+          }
+        }
+        refreshLists()
+      });
     }
 
 
