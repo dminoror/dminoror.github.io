@@ -95,7 +95,7 @@
       display: inline-block;
       text-align: center;
       height: 40px;
-      width: 10%;
+      width: 12%;
     }
   </style>
 </head>
@@ -211,7 +211,7 @@
     var randomIndexArray
     var displayPlayitemIndex
 
-    var currentFileId
+    var currentPlayitem
     var currentRequest
     var preloadFileId
     var preloadRequest
@@ -283,8 +283,9 @@
       if (gid != null) {
         fetchFile(gid, function (response) {
           let json = response
-          let mimeType = json.mimeType
-          if (mimeType != null) {
+          console.log('response = ' + response)
+          if (typeof response !== 'undefined' && 'mimeType' in response) {
+            let mimeType = json.mimeType
             if (mimeType.includes('json')) {
               loadPlaylists(gid)
             }
@@ -297,10 +298,11 @@
             }
             else {
               console.log('unknown file type')
+              infoLabel.textContent = 'Unsupported file formet.' 
             }
           }
           else {
-            console.log('gid get failed')
+            infoLabel.textContent = 'No login, or you has no permission to access this file.' 
           }
         })
       }
@@ -339,9 +341,11 @@
         var playitem = playlist.list[j]
         let li = document.createElement("li")
         li.className = 'playitem'
-        var pathArray = playitem.path.split("\\")
-        var fileName = pathArray[pathArray.length - 1]
-        li.appendChild(document.createTextNode(fileName))
+        if (playitem.path.includes('\\')) {
+          let pathArray = playitem.path.split("\\")
+          playitem.path = pathArray[pathArray.length - 1]
+        }
+        li.appendChild(document.createTextNode(playitem.path))
         currentSongList.appendChild(li);
         if (displayPlaylist === currentPlaylist && j == displayPlayitemIndex) {
           li.style.backgroundColor = 'orange'
@@ -405,7 +409,7 @@
       let playitem = currentPlaylist.list[playitemIndex]
       displayPlayitemIndex = playitemIndex
       currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
-      loadMusic(playitem.gdID)
+      loadMusic(playitem)
     }
 
     progress.addEventListener('change', function (event) {
@@ -461,7 +465,7 @@
         let playitem = getPlayitem(playitemIndex)
         console.log('displayPlayitemIndex = ' + displayPlayitemIndex)
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
-        loadMusic(playitem.gdID)
+        loadMusic(playitem)
       }
     }
     function handlePrevClick(event) {
@@ -500,7 +504,7 @@
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       }
-      loadMusic(playitem.gdID)
+      loadMusic(playitem)
     }
     function next(forceNext) {
       console.log('next')
@@ -522,7 +526,7 @@
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       }
-      loadMusic(playitem.gdID)
+      loadMusic(playitem)
     }
 
     function getCurrentTime() {
@@ -587,6 +591,7 @@
         progress.max = buffer.duration;
         durationLabel.textContent = formatedTime(buffer.duration);
         console.log('playAudio load succeseed');
+        infoLabel.textContent = 'Playing ' + currentPlayitem.path
         playButton.textContent = 'pause';
         startPreload()
       }
@@ -622,15 +627,15 @@
       volumeGain = gain
     }
 
-    function loadMusic(fileId) {
+    function loadMusic(playitem) {
       isPlaying = false;
       if (audioContext.state != 'closed') {
         audioContext.close();
       }
+      infoLabel.textContent = 'Loading ' + playitem.path + ' ...'
+      currentPlayitem = playitem
       audioContext = new AudioContext();
-
-      //console.log('preloadResponse = ' + preloadResponse + ' preloadFileId = ' + preloadFileId + ' fileId = ' + fileId)
-      if (preloadResponse != null && preloadFileId == fileId) {
+      if (preloadResponse != null && preloadFileId == playitem.gdID) {
         console.log('preload found')
         handleAudioData(preloadResponse)
         preloadResponse = null
@@ -649,11 +654,10 @@
       preloadRequest = null
       preloadResponse = null
       preloadFileId = null
-      currentFileId = fileId
 
       currentRequest = new XMLHttpRequest();
       let accessToken = gapi.auth.getToken().access_token;
-      currentRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
+      currentRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + currentPlayitem.gdID + '?alt=media');
       currentRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       currentRequest.responseType = 'arraybuffer';
       currentRequest.onload = function () {
@@ -675,15 +679,15 @@
 
     function startPreload() {
       let nextPlayitem = getPreloadPlayitem()
-      preloadMusic(nextPlayitem.gdID)
+      preloadMusic(nextPlayitem)
     }
 
-    function preloadMusic(fileId) {
-      console.log('preload ' + fileId)
+    function preloadMusic(playitem) {
+      console.log('preload ' + playitem.gdID)
       var accessToken = gapi.auth.getToken().access_token;
-      preloadFileId = fileId
+      preloadFileId = playitem.gdID
       preloadRequest = new XMLHttpRequest();
-      preloadRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
+      preloadRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + playitem.gdID + '?alt=media');
       preloadRequest.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       preloadRequest.responseType = 'arraybuffer';
       preloadRequest.onload = function () {
@@ -788,9 +792,10 @@
      * @param {Function} callback Function to call when the request is complete.
      */
     function fetchFile(fileId, callback) {
-      gapi.client.drive.files.get({
+      let request = gapi.client.drive.files.get({
         'fileId': fileId
-      }).then(function (response) {
+      })
+      request.execute(function (response) {
         callback(response.result)
       })
     }
