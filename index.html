@@ -144,7 +144,7 @@
           </ul>
         </div>
         <div style="text-align: center; height: 40px;">
-          <button style="text-align: center; height: 40px; width: 40px; border-radius: 20px; display: none;"
+          <button style="text-align: center; height: 40px; width: 40px; border-radius: 20px; display: block;"
             id="addPlayitemBuuton">+</button>
         </div>
       </div>
@@ -174,7 +174,11 @@
 
     // Authorization scopes required by the API; multiple scopes can be
     // included, separated by spaces.
-    var SCOPES = 'https://www.googleapis.com/auth/drive';
+    //var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+    var SCOPES = [
+	'https://www.googleapis.com/auth/drive.file',
+	'https://www.googleapis.com/auth/drive.appfolder'
+];
 
     var authorizeButton = document.getElementById('authorize_button');
     var signoutButton = document.getElementById('signout_button');
@@ -224,7 +228,19 @@
      */
     function handleClientLoad() {
       gapi.load('client:auth2', initClient);
-      gapi.load('picker');
+    }
+    
+    function loadPicker() {
+      gapi.load('auth', {'callback': onAuthApiLoad});
+      gapi.load('picker', {'callback': onPickerApiLoad});
+    }
+
+    function onAuthApiLoad() {
+      console.log('onAuthApiLoad')
+    }
+
+    function onPickerApiLoad() {
+      console.log('onPickerApiLoad')
     }
 
     /**
@@ -233,10 +249,11 @@
      */
     function initClient() {
       gapi.client.init({
-        apiKey: API_KEY,
-        clientId: CLIENT_ID,
+        //apiKey: API_KEY,
+        'client_id': CLIENT_ID,
         discoveryDocs: DISCOVERY_DOCS,
-        scope: SCOPES
+        'scope': SCOPES.join(' '),
+        'immediate': false
       }).then(function () {
         // Listen for sign-in state changes.
         gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
@@ -261,7 +278,8 @@
         signoutButton.style.display = 'block';
         //appendPre(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
         if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
-          console.log("got accessToken "/* + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token*/);
+          //console.log("got accessToken " + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
+          //console.log("got accessToken " + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token);
           gdAuthToken = gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token
         }
         infoLabel.textContent = '已登入'
@@ -475,13 +493,35 @@
       next(true)
     }
     function handleAddPlayitemClick(event) {
+      let audioMimeType="audio/mpeg,audio/flac,audio/mp4,audio/aac,video/mp4,application/x-flac,audio/x-flac,audio/webm,video/webm,audio/mpeg3,audio/x-mpeg-3,audio/ogg,application/ogg,audio/x-wav,audio/x-aiff,audio/basic";
+      let view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).
+        setParent('root').
+        setIncludeFolders(true).
+        setSelectFolderEnabled(false).
+        setMode('LIST').
+        setMimeTypes(audioMimeType)
       let picker = new google.picker.PickerBuilder().
-        addView(google.picker.ViewId.DOCS).
+        addView(view).
+        enableFeature(google.picker.Feature.MULTISELECT_ENABLED).
         setAppId(CLIENT_ID).
-        setOAuthToken(gdAuthToken).
+        setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token).
         setDeveloperKey(API_KEY).
+        setCallback(pickerCallback).
         build();
       picker.setVisible(true);
+    }
+    function pickerCallback(data) {
+      if (data.action == google.picker.Action.PICKED) {
+        for (let i = 0; i < data.docs.length; i++) {
+          let file = data.docs[i]
+          let playitem = {
+              path: file.name,
+              gdID: file.id
+            }
+            displayPlaylist.list.push(playitem)
+        }
+        refreshPlaylist()
+      }
     }
 
     function seek(time) {
@@ -863,7 +903,8 @@
 
   <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
     onreadystatechange="if (this.readyState === 'complete') this.onload()">
-    </script>
+  </script>
+  <script type="text/javascript" src="https://apis.google.com/js/api.js?onload=loadPicker"></script>
 </body>
 
 </html>
