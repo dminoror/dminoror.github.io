@@ -79,6 +79,7 @@
     .playitem {
       color: purple;
       list-style-type: decimal;
+      height: 24px;
       border-bottom: 1px solid black;
     }
 
@@ -143,9 +144,9 @@
           <ul id="currentSongList" class="itemsList">
           </ul>
         </div>
-        <div style="text-align: center; height: 40px;">
+        <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
           <button style="text-align: center; height: 40px; width: 40px; border-radius: 20px; display: block;"
-            id="addPlayitemBuuton">+</button>
+            id="addPlayitemButton">+</button>
         </div>
       </div>
       <div id="right">
@@ -176,9 +177,9 @@
     // included, separated by spaces.
     //var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
     var SCOPES = [
-	'https://www.googleapis.com/auth/drive.file',
-	'https://www.googleapis.com/auth/drive.appfolder'
-];
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appfolder'
+    ];
 
     var authorizeButton = document.getElementById('authorize_button');
     var signoutButton = document.getElementById('signout_button');
@@ -195,9 +196,11 @@
     var playlistsList = document.getElementById('playlistsList')
     var randomButton = document.getElementById('randomButton')
     var loopButton = document.getElementById('loopButton')
-    var addPlayitemBuuton = document.getElementById('addPlayitemBuuton')
+    var addPlayitemButton = document.getElementById('addPlayitemButton')
 
     var gdAuthToken
+    var currentGID
+    var currentGIDResponse
 
     var audioContext = new AudioContext()
     audioContext.close()
@@ -229,10 +232,10 @@
     function handleClientLoad() {
       gapi.load('client:auth2', initClient);
     }
-    
+
     function loadPicker() {
-      gapi.load('auth', {'callback': onAuthApiLoad});
-      gapi.load('picker', {'callback': onPickerApiLoad});
+      gapi.load('auth', { 'callback': onAuthApiLoad });
+      gapi.load('picker', { 'callback': onPickerApiLoad });
     }
 
     function onAuthApiLoad() {
@@ -266,7 +269,7 @@
         playButton.onclick = handlePlayClick;
         prevButton.onclick = handlePrevClick;
         nextButton.onclick = handleNextClick;
-        addPlayitemBuuton.onclick = handleAddPlayitemClick;
+        addPlayitemButton.onclick = handleAddPlayitemClick;
       }, function (error) {
         appendPre(JSON.stringify(error, null, 2));
       });
@@ -299,8 +302,10 @@
       let url = new URL(urlString)
       let gid = url.searchParams.get('gid')
       if (gid != null) {
+        currentGID = gid
         fetchFile(gid, function (response) {
           let json = response
+          currentGIDResponse = response
           console.log('response = ' + response)
           if (typeof response !== 'undefined' && 'mimeType' in response) {
             let mimeType = json.mimeType
@@ -316,11 +321,11 @@
             }
             else {
               console.log('unknown file type')
-              infoLabel.textContent = 'Unsupported file formet.' 
+              infoLabel.textContent = 'Unsupported file formet.'
             }
           }
           else {
-            infoLabel.textContent = 'No login, or you has no permission to access this file.' 
+            infoLabel.textContent = 'No login, or you has no permission to access this file.'
           }
         })
       }
@@ -356,19 +361,29 @@
       $(currentSongList).empty()
       let playlist = displayPlaylist
       for (let j = 0; j < playlist.list.length; j++) {
-        var playitem = playlist.list[j]
+        let playitem = playlist.list[j]
         let li = document.createElement("li")
         li.className = 'playitem'
         if (playitem.path.includes('\\')) {
           let pathArray = playitem.path.split("\\")
           playitem.path = pathArray[pathArray.length - 1]
         }
-        li.appendChild(document.createTextNode(playitem.path))
+        let listContent = document.createElement("BUTTON")
+        listContent.style = "width: calc(100% - 24px); text-align: left; padding: 0; border: none; background-color: Transparent; outline: none;"
+        listContent.textContent = playitem.path
+        li.appendChild(listContent)
+        let listButton = document.createElement("BUTTON")
+        listButton.innerText = "X"
+        listButton.style = "float: right; width: 24px; height: 24px"
+        listButton.onclick = function () {
+          removePlayitem(playitem)
+        }
+        li.appendChild(listButton)
         currentSongList.appendChild(li);
         if (displayPlaylist === currentPlaylist && j == displayPlayitemIndex) {
           li.style.backgroundColor = 'orange'
         }
-        li.onclick = function () {
+        listContent.onclick = function () {
           currentSongClick(j)
         }
         li.onmouseover = function () {
@@ -428,6 +443,17 @@
       displayPlayitemIndex = playitemIndex
       currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       loadMusic(playitem)
+    }
+
+    function removePlayitem(playitem) {
+      console.log('remove playitem, name = ' + playitem.path + ' fileId = ' + playitem.gdID)
+      let index = displayPlaylist.list.indexOf(playitem)
+      if (index > -1) {
+        displayPlaylist.list.splice(index, 1)
+        playlists[displayPlaylistIndex] = displayPlaylist
+        refreshPlaylist()
+        savePlaylists()
+      }
     }
 
     progress.addEventListener('change', function (event) {
@@ -493,7 +519,7 @@
       next(true)
     }
     function handleAddPlayitemClick(event) {
-      let audioMimeType="audio/mpeg,audio/flac,audio/mp4,audio/aac,video/mp4,application/x-flac,audio/x-flac,audio/webm,video/webm,audio/mpeg3,audio/x-mpeg-3,audio/ogg,application/ogg,audio/x-wav,audio/x-aiff,audio/basic";
+      let audioMimeType = "audio/mpeg,audio/flac,audio/mp4,audio/aac,video/mp4,application/x-flac,audio/x-flac,audio/webm,video/webm,audio/mpeg3,audio/x-mpeg-3,audio/ogg,application/ogg,audio/x-wav,audio/x-aiff,audio/basic";
       let view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).
         setParent('root').
         setIncludeFolders(true).
@@ -515,12 +541,13 @@
         for (let i = 0; i < data.docs.length; i++) {
           let file = data.docs[i]
           let playitem = {
-              path: file.name,
-              gdID: file.id
-            }
-            displayPlaylist.list.push(playitem)
+            path: file.name,
+            gdID: file.id
+          }
+          displayPlaylist.list.push(playitem)
         }
         refreshPlaylist()
+        savePlaylists()
       }
     }
 
@@ -766,6 +793,83 @@
       xhr.send();
     }
 
+    function savePlaylists() {
+      if (currentGIDResponse == null) { return }
+      let contentType = 'application/json'
+      let metadata = {
+        name: currentGIDResponse.name,
+        mimeType: contentType
+      }
+      let fileData = JSON.stringify(playlists)
+
+      let boundary = 'GDUploadLine'
+      let delimiter = "\r\n--" + boundary + "\r\n";
+      let close_delim = "\r\n--" + boundary + "--";
+
+      let multipartRequestBody =
+          delimiter +
+          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+          JSON.stringify(metadata) +
+          delimiter +
+          'Content-Type: ' + contentType + '\r\n\r\n' +
+          fileData+'\r\n'+
+          close_delim;
+
+      let xhr = new XMLHttpRequest();
+      let url = 'https://www.googleapis.com/upload/drive/v3/files/' + currentGID + '?uploadType=multipart'
+      xhr.open('PATCH', url)
+      let accessToken = gapi.auth.getToken().access_token;
+      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken)
+      xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary)
+      xhr.responseType = 'json'
+      xhr.onload = function () {
+        console.log('savePlaylists onload, response = ' + JSON.stringify(xhr.response))
+      };
+      xhr.onerror = function () {
+        console.log('savePlaylists onerror, error = ' + xhr.error)
+        alert('save playlists failure, undo previous edit.')
+        loadPlaylists(currentGID)
+      };
+      xhr.send(multipartRequestBody);
+    }
+
+    function createPlaylistsFile(fileName) {
+      let contentType = 'application/json'
+      let metadata = {
+        name: fileName,
+        mimeType: contentType
+      }
+      let fileData = JSON.stringify(playlists)
+
+      let boundary = 'GDUploadLine'
+      let delimiter = "\r\n--" + boundary + "\r\n";
+      let close_delim = "\r\n--" + boundary + "--";
+
+      let multipartRequestBody =
+          delimiter +
+          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+          JSON.stringify(metadata) +
+          delimiter +
+          'Content-Type: ' + contentType + '\r\n\r\n' +
+          fileData+'\r\n'+
+          close_delim;
+
+      let xhr = new XMLHttpRequest();
+      let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
+      xhr.open('POST', url)
+      let accessToken = gapi.auth.getToken().access_token;
+      xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken)
+      xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary)
+      xhr.responseType = 'json'
+      xhr.onload = function () {
+        console.log('savePlaylists onload, response = ' + JSON.stringify(xhr.response))
+      };
+      xhr.onerror = function () {
+        console.log('savePlaylists onerror, error = ' + xhr.error)
+      };
+      xhr.send(multipartRequestBody);
+    }
+
     function getURL(url, callback) {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
@@ -903,7 +1007,7 @@
 
   <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
     onreadystatechange="if (this.readyState === 'complete') this.onload()">
-  </script>
+    </script>
   <script type="text/javascript" src="https://apis.google.com/js/api.js?onload=loadPicker"></script>
 </body>
 
