@@ -56,8 +56,7 @@
 
     #right {
       width: calc(25vh - 4px);
-      margin-top: -14px;
-      margin-left: -14px;
+      margin-left: 14px;
       float: left;
     }
 
@@ -145,13 +144,17 @@
           </ul>
         </div>
         <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
-          <button style="text-align: center; height: 40px; width: 40px; border-radius: 20px; display: block;"
-            id="addPlayitemButton">+</button>
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px;" id="addPlayitemButton">add file to this playlist</button>
         </div>
       </div>
       <div id="right">
-        <ul id="playlistsList" class="itemList">
-        </ul>
+        <div class="listContainer">
+          <ul id="playlistsList" class="itemsList">
+          </ul>
+        </div>
+        <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;" id="addPlaylistButton">new playlist</button>
+        </div>
       </div>
 
     </div>
@@ -197,6 +200,7 @@
     var randomButton = document.getElementById('randomButton')
     var loopButton = document.getElementById('loopButton')
     var addPlayitemButton = document.getElementById('addPlayitemButton')
+    var addPlaylistButton = document.getElementById('addPlaylistButton')
 
     var gdAuthToken
     var currentGID
@@ -212,7 +216,7 @@
     var playitemIndex = -1
     var currentPlaylist
     var displayPlaylist
-    var displayPlaylistIndex
+    var displayPlaylistIndex = -1
     var randomMode = false
     var loopMode = 0 // 0:Loop 1:SingleLoop 2:NoLoop
     var randomIndexArray
@@ -264,12 +268,13 @@
         //return
         // Handle the initial sign-in state.
         updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-        authorizeButton.onclick = handleAuthClick;
-        signoutButton.onclick = handleSignoutClick;
-        playButton.onclick = handlePlayClick;
-        prevButton.onclick = handlePrevClick;
-        nextButton.onclick = handleNextClick;
-        addPlayitemButton.onclick = handleAddPlayitemClick;
+        authorizeButton.onclick = handleAuthClick
+        signoutButton.onclick = handleSignoutClick
+        playButton.onclick = handlePlayClick
+        prevButton.onclick = handlePrevClick
+        nextButton.onclick = handleNextClick
+        addPlayitemButton.onclick = handleAddPlayitemClick
+        addPlaylistButton.onclick = handleAddPlaylistClick
       }, function (error) {
         appendPre(JSON.stringify(error, null, 2));
       });
@@ -340,9 +345,19 @@
         let playlist = playlists[i];
         let li = document.createElement("li")
         li.className = 'playitem'
-        li.appendChild(document.createTextNode(playlist.name))
+        let listContent = document.createElement("BUTTON")
+        listContent.style = "width: calc(100% - 24px); text-align: left; padding: 0; border: none; background-color: Transparent; outline: none;"
+        listContent.textContent = playlist.name
+        li.appendChild(listContent)
+        let listButton = document.createElement("BUTTON")
+        listButton.innerText = "X"
+        listButton.style = "float: right; width: 24px; height: 24px"
+        listButton.onclick = function () {
+          removePlaylist(playlist)
+        }
+        li.appendChild(listButton)
         playlistsList.appendChild(li)
-        li.onclick = function () {
+        listContent.onclick = function () {
           playlistListClick(i)
         }
         li.onmouseover = function () {
@@ -352,7 +367,9 @@
           li.style.backgroundColor = 'white'
         }
       }
-      displayPlaylistIndex = 0
+      if (displayPlaylistIndex < 0) {
+        displayPlaylistIndex = 0
+      }
       displayPlaylist = playlists[displayPlaylistIndex]
       refreshPlaylist()
     }
@@ -455,6 +472,19 @@
         savePlaylists()
       }
     }
+    function removePlaylist(playlist) {
+      console.log('remove playlist, name = ' + playlist.name)
+      let index = playlists.indexOf(playlist)
+      if (index > -1) {
+        playlists.splice(index, 1)
+        console.log('index = ' + index + ' displayIndex = ' + displayPlaylistIndex)
+        if (index <= displayPlaylistIndex) {
+          displayPlaylistIndex -= 1
+        }
+        refreshLists()
+        savePlaylists()
+      }
+    }
 
     progress.addEventListener('change', function (event) {
       console.log('seek to ' + progress.value);
@@ -547,6 +577,20 @@
           displayPlaylist.list.push(playitem)
         }
         refreshPlaylist()
+        savePlaylists()
+      }
+    }
+
+    function handleAddPlaylistClick(event) {
+      var playlistName = prompt("New playlist name", "");
+      if (playlistName != null && playlistName.length > 0) {
+        console.log('new playlist = ' + playlistName)
+        let playlist = {
+          name: playlistName,
+          list: []
+        }
+        playlists.push(playlist)
+        refreshLists()
         savePlaylists()
       }
     }
