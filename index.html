@@ -55,9 +55,11 @@
     }
 
     #right {
-      width: calc(25vh - 4px);
-      margin-left: 14px;
+      background: transparent;
+      margin-left: calc(75% + 12px);
+      width: calc(20% - 12px);
       float: left;
+      position: fixed;
     }
 
     .listContainer {
@@ -80,6 +82,7 @@
       list-style-type: decimal;
       height: 24px;
       border-bottom: 1px solid black;
+      min-width: 0px;
     }
 
     #progress {
@@ -97,11 +100,25 @@
       height: 40px;
       width: 12%;
     }
+/*
+    #rightMenu {
+      position: fixed;
+      left: 100px;
+      top: 100px;
+      width: 100px;
+      background-color: gray;
+    }*/
   </style>
 </head>
 
 <body>
   <dev id='wapper'>
+    <div id="rightMenu" hidden="true">
+      <ul id="menuList" style="margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px;">
+        <li style="list-style-type: none;">選項</li>
+      </ul>
+    </div>
+
     <div id='mainPanel'>
       <div id='userPanel'>
         <button id="authorize_button" style="display: none; float: left; width: 80px;">Authorize</button>
@@ -144,7 +161,8 @@
           </ul>
         </div>
         <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
-          <button style="text-align: center; height: 32px; display: block; margin-top: 4px;" id="addPlayitemButton">add file to this playlist</button>
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px;" id="addPlayitemButton">add
+            file to this playlist</button>
         </div>
       </div>
       <div id="right">
@@ -153,15 +171,16 @@
           </ul>
         </div>
         <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
-          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;" id="addPlaylistButton">new playlist</button>
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;"
+            id="addPlaylistButton">new playlist</button>
         </div>
       </div>
 
     </div>
 
 
-
   </dev>
+
 
 
 
@@ -201,6 +220,7 @@
     var loopButton = document.getElementById('loopButton')
     var addPlayitemButton = document.getElementById('addPlayitemButton')
     var addPlaylistButton = document.getElementById('addPlaylistButton')
+    //var rightMenu = document.getElementById('rightMenu')
 
     var gdAuthToken
     var currentGID
@@ -229,6 +249,66 @@
     var preloadResponse
     var errorFetchIndex = 0
     var errorFetchCount = 5
+
+    randomButton.addEventListener('click', function (event) {
+      randomMode = !randomMode
+      if (randomMode) {
+        randomButton.textContent = 'Random'
+      }
+      else {
+        randomButton.textContent = 'No Random'
+        playitemIndex = displayPlayitemIndex
+      }
+    })
+    loopButton.addEventListener('click', function (event) {
+      if (loopMode == 0) {
+        loopMode = 1
+        loopButton.textContent = 'Single Loop'
+      }
+      else if (loopMode == 1) {
+        loopMode = 2
+        loopButton.textContent = 'No Loop'
+      }
+      else {
+        loopMode = 0
+        loopButton.textContent = 'Loop'
+      }
+    })
+    /*
+    $(rightMenu).on('contextmenu', function () {
+      return false;
+    })
+    $(document).bind("click", function() {
+      rightMenu.hidden = true
+    })*/
+
+    progress.addEventListener('change', function (event) {
+      console.log('seek to ' + progress.value);
+      seek(progress.value);
+    })
+    volumeInputer.addEventListener('change', function (event) {
+      volumeLabel.textContent = volumeInputer.value
+      volumeGain.gain.value = volumeInputer.value / 100.0
+    })
+    var isSliding = false;
+    progress.addEventListener('mousedown', function (event) {
+      //console.log('seek down');
+      isSliding = true;
+    })
+    progress.addEventListener('mouseup', function (event) {
+      //console.log('seek up');
+      isSliding = false;
+    })
+
+    var progressTimer = setInterval(function () {
+      if (!isSliding && isPlaying) {
+        let currentTime = getCurrentTime();
+        progress.value = currentTime;
+        currentTimeLabel.textContent = formatedTime(currentTime);
+      }
+    }, 500)
+
+
 
     /**
      *  On load, called to load the auth2 library and API client library.
@@ -318,7 +398,7 @@
               loadPlaylists(gid)
             }
             else if (mimeType.includes('audio')) {
-              playlists = createNewPlaylist(json.name, gid)
+              playlists = createNewPlaylists(json.name, gid)
               refreshLists()
             }
             else if (mimeType.includes('google-apps.folder')) {
@@ -336,6 +416,8 @@
       }
       else {
         console.log('gid not found')
+        playlists = createEmptyPlaylists()
+        refreshLists()
       }
     }
 
@@ -349,6 +431,21 @@
         listContent.style = "width: calc(100% - 24px); text-align: left; padding: 0; border: none; background-color: Transparent; outline: none;"
         listContent.textContent = playlist.name
         li.appendChild(listContent)
+/*
+        $(listContent).on('contextmenu', function () {
+          return false;
+        })
+        $(listContent).on('mousedown', function (event) {
+          let isRight = event.which == 3
+          if (isRight) {
+            let x = event.pageX
+            let y = event.pageY
+            rightMenu.hidden = false
+            rightMenu.style.left = x + 'px'
+            rightMenu.style.top = y + 'px'
+          }
+        })*/
+
         let listButton = document.createElement("BUTTON")
         listButton.innerText = "X"
         listButton.style = "float: right; width: 24px; height: 24px"
@@ -423,31 +520,6 @@
       refreshPlaylist()
     }
 
-    randomButton.addEventListener('click', function (event) {
-      randomMode = !randomMode
-      if (randomMode) {
-        randomButton.textContent = 'Random'
-      }
-      else {
-        randomButton.textContent = 'No Random'
-        playitemIndex = displayPlayitemIndex
-      }
-    })
-    loopButton.addEventListener('click', function (event) {
-      if (loopMode == 0) {
-        loopMode = 1
-        loopButton.textContent = 'Single Loop'
-      }
-      else if (loopMode == 1) {
-        loopMode = 2
-        loopButton.textContent = 'No Loop'
-      }
-      else {
-        loopMode = 0
-        loopButton.textContent = 'Loop'
-      }
-    })
-
     function currentSongClick(index) {
       console.log("playitem index " + index + "clicked")
       if (playitemIndex < currentSongList.children.length && playitemIndex >= 0) {
@@ -485,32 +557,6 @@
         savePlaylists()
       }
     }
-
-    progress.addEventListener('change', function (event) {
-      console.log('seek to ' + progress.value);
-      seek(progress.value);
-    })
-    volumeInputer.addEventListener('change', function (event) {
-      volumeLabel.textContent = volumeInputer.value
-      volumeGain.gain.value = volumeInputer.value / 100.0
-    })
-    var isSliding = false;
-    progress.addEventListener('mousedown', function (event) {
-      //console.log('seek down');
-      isSliding = true;
-    });
-    progress.addEventListener('mouseup', function (event) {
-      //console.log('seek up');
-      isSliding = false;
-    });
-
-    var progressTimer = setInterval(function () {
-      if (!isSliding && isPlaying) {
-        let currentTime = getCurrentTime();
-        progress.value = currentTime;
-        currentTimeLabel.textContent = formatedTime(currentTime);
-      }
-    }, 500);
 
     function handlePlayClick(event) {
       if (audioContext.state == 'suspended') {
@@ -851,13 +897,13 @@
       let close_delim = "\r\n--" + boundary + "--";
 
       let multipartRequestBody =
-          delimiter +
-          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-          JSON.stringify(metadata) +
-          delimiter +
-          'Content-Type: ' + contentType + '\r\n\r\n' +
-          fileData+'\r\n'+
-          close_delim;
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: ' + contentType + '\r\n\r\n' +
+        fileData + '\r\n' +
+        close_delim;
 
       let xhr = new XMLHttpRequest();
       let url = 'https://www.googleapis.com/upload/drive/v3/files/' + currentGID + '?uploadType=multipart'
@@ -890,13 +936,13 @@
       let close_delim = "\r\n--" + boundary + "--";
 
       let multipartRequestBody =
-          delimiter +
-          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-          JSON.stringify(metadata) +
-          delimiter +
-          'Content-Type: ' + contentType + '\r\n\r\n' +
-          fileData+'\r\n'+
-          close_delim;
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: ' + contentType + '\r\n\r\n' +
+        fileData + '\r\n' +
+        close_delim;
 
       let xhr = new XMLHttpRequest();
       let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart'
@@ -944,8 +990,19 @@
       }
       return array
     }
-
-    function createNewPlaylist(path, fileId) {
+    
+    function createEmptyPlaylists() {
+      let playlists = [
+        {
+          name: 'unnamed playlist',
+          list: [
+          ]
+        }
+      ]
+      console.log('empty playlists = ' + JSON.stringify(playlists))
+      return playlists
+    }
+    function createNewPlaylists(path, fileId) {
       let jsonString = '[{"name":"unnamed playlist","list":[{"path":"' + path + '","gdID":"' + fileId + '"}]}]'
       let playlists = JSON.parse(jsonString)
       return playlists
