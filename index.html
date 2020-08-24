@@ -100,25 +100,19 @@
       height: 40px;
       width: 12%;
     }
-/*
+
     #rightMenu {
       position: fixed;
       left: 100px;
       top: 100px;
       width: 100px;
-      background-color: gray;
-    }*/
+      background-color: white;
+    }
   </style>
 </head>
 
 <body>
   <dev id='wapper'>
-    <div id="rightMenu" hidden="true">
-      <ul id="menuList" style="margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px;">
-        <li style="list-style-type: none;">選項</li>
-      </ul>
-    </div>
-
     <div id='mainPanel'>
       <div id='userPanel'>
         <button id="authorize_button" style="display: none; float: left; width: 80px;">Authorize</button>
@@ -170,14 +164,20 @@
           <ul id="playlistsList" class="itemsList">
           </ul>
         </div>
-        <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: column; ">
-          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;"
-            id="addPlaylistButton">new playlist</button>
+        <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: row; ">
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;" id="addPlaylistButton">new playlist</button>
         </div>
       </div>
-
     </div>
 
+    <div style="position: fixed; bottom: 0px; right: 0px; width: 5%; background-color: blue;">
+      <button style="float: right; vertical-align: bottom;" id="saveConfigButton">Save Config</button>
+      <button style="float: right; vertical-align: bottom;" id="loadConfigButton">Load Config</button>
+    </div>
+
+    <div id="rightMenu" hidden="true"
+      style="border-color: black; border-width: 1px; border-style: solid; border-radius: 5px;">
+    </div>
 
   </dev>
 
@@ -220,7 +220,9 @@
     var loopButton = document.getElementById('loopButton')
     var addPlayitemButton = document.getElementById('addPlayitemButton')
     var addPlaylistButton = document.getElementById('addPlaylistButton')
-    //var rightMenu = document.getElementById('rightMenu')
+    var rightMenu = document.getElementById('rightMenu')
+
+    var blockSave = false
 
     var gdAuthToken
     var currentGID
@@ -232,6 +234,7 @@
     var volumeGain
     var isPlaying = false
     var startTime
+    var playerDB
     var playlists
     var playitemIndex = -1
     var currentPlaylist
@@ -274,14 +277,31 @@
         loopButton.textContent = 'Loop'
       }
     })
-    /*
+
+    document.getElementById('saveConfigButton').onclick = function() {
+      console.log('saveConfig')
+      let config = {
+        playlists: playlists,
+        playlistIndex: displayPlaylistIndex,
+        volume: volumeInputer.value / 100.0,
+        playitemIndex: playitemIndex,
+        loopMode: loopMode,
+        randomMode: randomMode
+      }
+      savePlaylists(config)
+    }
+    $(currentSongList).on('contextmenu', function () {
+      return false;
+    })
+    $(playlistsList).on('contextmenu', function () {
+      return false;
+    })
     $(rightMenu).on('contextmenu', function () {
       return false;
     })
-    $(document).bind("click", function() {
+    $(document).bind("click", function () {
       rightMenu.hidden = true
-    })*/
-
+    })
     progress.addEventListener('change', function (event) {
       console.log('seek to ' + progress.value);
       seek(progress.value);
@@ -431,28 +451,43 @@
         listContent.style = "width: calc(100% - 24px); text-align: left; padding: 0; border: none; background-color: Transparent; outline: none;"
         listContent.textContent = playlist.name
         li.appendChild(listContent)
-/*
-        $(listContent).on('contextmenu', function () {
-          return false;
-        })
+
         $(listContent).on('mousedown', function (event) {
           let isRight = event.which == 3
           if (isRight) {
             let x = event.pageX
             let y = event.pageY
             rightMenu.hidden = false
-            rightMenu.style.left = x + 'px'
-            rightMenu.style.top = y + 'px'
+            rightMenu.style.left = (x + 5) + 'px'
+            rightMenu.style.top = (y + 5) + 'px'
+            $(rightMenu).empty()
+            let menuTitle = ['rename', 'delete']
+            let menuCallback = [
+              function() {
+                let playlistName = prompt("New playlist name", "");
+                if (playlistName != null && playlistName.length > 0) {
+                  playlist.name = playlistName
+                  refreshLists()
+                }
+              }, 
+              function() {
+                removePlaylist(playlist)
+              }]
+            for (let i = 0; i < 2; i++) {
+              let menuOption = document.createElement('li')
+              menuOption.style = 'list-style-type: none; padding-left: 16px'
+              menuOption.appendChild(document.createTextNode(menuTitle[i]))
+              rightMenu.appendChild(menuOption)
+              menuOption.onmouseover = function () {
+                menuOption.style.background = 'cornflowerblue'
+              }
+              menuOption.onmouseout = function () {
+                menuOption.style.background = 'white'
+              }
+              menuOption.onclick = menuCallback[i]
+            }
           }
-        })*/
-
-        let listButton = document.createElement("BUTTON")
-        listButton.innerText = "X"
-        listButton.style = "float: right; width: 24px; height: 24px"
-        listButton.onclick = function () {
-          removePlaylist(playlist)
-        }
-        li.appendChild(listButton)
+        })
         playlistsList.appendChild(li)
         listContent.onclick = function () {
           playlistListClick(i)
@@ -486,13 +521,32 @@
         listContent.style = "width: calc(100% - 24px); text-align: left; padding: 0; border: none; background-color: Transparent; outline: none;"
         listContent.textContent = playitem.path
         li.appendChild(listContent)
-        let listButton = document.createElement("BUTTON")
-        listButton.innerText = "X"
-        listButton.style = "float: right; width: 24px; height: 24px"
-        listButton.onclick = function () {
-          removePlayitem(playitem)
-        }
-        li.appendChild(listButton)
+
+        $(listContent).on('mousedown', function (event) {
+          let isRight = event.which == 3
+          if (isRight) {
+            let x = event.pageX
+            let y = event.pageY
+            rightMenu.hidden = false
+            rightMenu.style.left = (x + 5) + 'px'
+            rightMenu.style.top = (y + 5) + 'px'
+            $(rightMenu).empty()
+            let menuOption = document.createElement('li')
+            menuOption.style = 'list-style-type: none; padding-left: 16px'
+            menuOption.appendChild(document.createTextNode('delete'))
+            rightMenu.appendChild(menuOption)
+            menuOption.onmouseover = function () {
+              menuOption.style.background = 'cornflowerblue'
+            }
+            menuOption.onmouseout = function () {
+              menuOption.style.background = 'white'
+            }
+            menuOption.onclick = function () {
+              removePlayitem(playitem)
+            }
+          }
+        })
+
         currentSongList.appendChild(li);
         if (displayPlaylist === currentPlaylist && j == displayPlayitemIndex) {
           li.style.backgroundColor = 'orange'
@@ -628,7 +682,7 @@
     }
 
     function handleAddPlaylistClick(event) {
-      var playlistName = prompt("New playlist name", "");
+      let playlistName = prompt("New playlist name", "");
       if (playlistName != null && playlistName.length > 0) {
         console.log('new playlist = ' + playlistName)
         let playlist = {
@@ -883,14 +937,15 @@
       xhr.send();
     }
 
-    function savePlaylists() {
+    function savePlaylists(data) {
       if (currentGIDResponse == null) { return }
+      if (blockSave) { return }
       let contentType = 'application/json'
       let metadata = {
         name: currentGIDResponse.name,
         mimeType: contentType
       }
-      let fileData = JSON.stringify(playlists)
+      let fileData = JSON.stringify(data)
 
       let boundary = 'GDUploadLine'
       let delimiter = "\r\n--" + boundary + "\r\n";
@@ -990,7 +1045,7 @@
       }
       return array
     }
-    
+
     function createEmptyPlaylists() {
       let playlists = [
         {
