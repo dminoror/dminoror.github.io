@@ -487,15 +487,22 @@
             }
           }
         })
+        if (i == config.playlistIndex) {
+          li.style.backgroundColor = 'orange'
+        }
         playlistsList.appendChild(li)
         listContent.onclick = function () {
           playlistListClick(i)
         }
         li.onmouseover = function () {
-          li.style.backgroundColor = 'yellow'
+          if (i != config.playlistIndex) {
+            li.style.backgroundColor = 'yellow'
+          }
         }
         li.onmouseout = function () {
-          li.style.backgroundColor = 'white'
+          if (i != config.playlistIndex) {
+            li.style.backgroundColor = 'white'
+          }
         }
       }
       if (config.playlistIndex < 0) {
@@ -568,7 +575,9 @@
 
     function playlistListClick(index) {
       console.log("playlist index " + index + "clicked")
+      playlistsList.children[config.playlistIndex].style.backgroundColor = 'white'
       config.playlistIndex = index
+      playlistsList.children[config.playlistIndex].style.backgroundColor = 'orange'
       displayPlaylist = config.playlists[index]
       refreshPlaylist()
     }
