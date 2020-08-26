@@ -635,8 +635,8 @@
           config.playitemIndex = 0
         }
         console.log('audioContext closed, try load');
-        //let playitem = getPlayitem(config.playitemIndex)
         let playitem = currentPlaylist.list[config.playitemIndex]
+        console.log('displayPlayitemIndex = '+displayPlayitemIndex)
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
         loadMusic(playitem)
       }
@@ -949,6 +949,9 @@
         if (status === 200) {
           let json = JSON.parse(xhr.response)
           config = json
+          if (config.playitemIndex < 0) {
+            config.playitemIndex = 0
+          }
           displayPlayitemIndex = config.playitemIndex
           volumeInputer.value = config.volume * 100
           volumeLabel.textContent = volumeInputer.value
