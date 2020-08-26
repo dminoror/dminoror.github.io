@@ -991,7 +991,7 @@
     }
 
     function saveConfig(data) {
-      if (currentGIDResponse == null) { return }
+      if (currentGIDResponse == null || !currentGIDResponse.mimeType.includes('json')) { return }
       if (blockSave) { return }
       let contentType = 'application/json'
       let metadata = {
@@ -1167,7 +1167,6 @@
           }
         }
         config.playlists = playlists
-        console.log('loadGDFolder, config = ' + JSON.stringify(config))
         refreshLists()
       });
     }
