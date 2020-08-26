@@ -644,7 +644,7 @@
         }
         console.log('audioContext closed, try load');
         let playitem = currentPlaylist.list[config.playitemIndex]
-        console.log('displayPlayitemIndex = '+displayPlayitemIndex)
+        displayPlayitemIndex = config.playitemIndex
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
         loadMusic(playitem)
       }
