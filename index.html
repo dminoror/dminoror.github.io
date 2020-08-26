@@ -129,7 +129,7 @@
       <div id="playerPanel">
         <div style="height: 80px; text-align: center;">
           <div style="margin-top: 11px;">
-            <button style="height: 24px; width: 100px;" id="randomButton">No Random</button>
+            <button style="height: 24px; width: 100px;" id="randomButton">Random</button>
           </div>
           <div style="margin-top: 7px;">
             <button style="height: 24px; width: 100px;" id="loopButton">Loop</button>
@@ -165,13 +165,14 @@
           </ul>
         </div>
         <div style="text-align: center; height: 40px; align-items: center; display: flex; flex-direction: row; ">
-          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;" id="addPlaylistButton">new playlist</button>
+          <button style="text-align: center; height: 32px; display: block; margin-top: 4px; float: right;"
+            id="addPlaylistButton">new playlist</button>
         </div>
       </div>
     </div>
 
     <div style="position: fixed; bottom: 0px; right: 0px; width: 5%; background-color: blue;">
-      <button style="float: right; vertical-align: bottom;" id="saveConfigButton">Save Config</button>
+      <button style="float: right; vertical-align: bottom;" id="saveConfigButton">Save as...</button>
       <button style="float: right; vertical-align: bottom;" id="loadConfigButton">Load Config</button>
     </div>
 
@@ -234,14 +235,14 @@
     var volumeGain
     var isPlaying = false
     var startTime
-    var playerDB
-    var playlists
-    var playitemIndex = -1
+    var config
+    // playlists
+    //var playitemIndex = -1
     var currentPlaylist
     var displayPlaylist
-    var displayPlaylistIndex = -1
-    var randomMode = false
-    var loopMode = 0 // 0:Loop 1:SingleLoop 2:NoLoop
+    //var displayPlaylistIndex = -1
+    //var randomMode = false
+    //var loopMode = 0 // 0:Loop 1:SingleLoop 2:NoLoop
     var randomIndexArray
     var displayPlayitemIndex
 
@@ -254,42 +255,40 @@
     var errorFetchCount = 5
 
     randomButton.addEventListener('click', function (event) {
-      randomMode = !randomMode
-      if (randomMode) {
-        randomButton.textContent = 'Random'
-      }
-      else {
-        randomButton.textContent = 'No Random'
-        playitemIndex = displayPlayitemIndex
-      }
+      setRandomMode(!config.randomMode)
     })
     loopButton.addEventListener('click', function (event) {
-      if (loopMode == 0) {
-        loopMode = 1
-        loopButton.textContent = 'Single Loop'
-      }
-      else if (loopMode == 1) {
-        loopMode = 2
-        loopButton.textContent = 'No Loop'
-      }
-      else {
-        loopMode = 0
-        loopButton.textContent = 'Loop'
-      }
+      setLoopMode((config.loopMode + 1) % 3)
     })
 
-    document.getElementById('saveConfigButton').onclick = function() {
-      console.log('saveConfig')
-      let config = {
-        playlists: playlists,
-        playlistIndex: displayPlaylistIndex,
-        volume: volumeInputer.value / 100.0,
-        playitemIndex: playitemIndex,
-        loopMode: loopMode,
-        randomMode: randomMode
+    document.getElementById('saveConfigButton').onclick = function () {
+      let configName = prompt("New config name", "");
+      if (configName != null && configName.length > 0) {
+        createPlaylistsFile(configName)
       }
-      savePlaylists(config)
     }
+    document.getElementById('loadConfigButton').onclick = function () {
+      let view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).
+        setParent('root').
+        setIncludeFolders(true).
+        setSelectFolderEnabled(true).
+        setMode('LIST').
+        setMimeTypes('application/json')
+      let picker = new google.picker.PickerBuilder().
+        addView(view).
+        setAppId(CLIENT_ID).
+        setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token).
+        setDeveloperKey(API_KEY).
+        setCallback(function (data) {
+          if (data.action == google.picker.Action.PICKED) {
+            let file = data.docs[0]
+            redirectNewURL(file.id)
+          }
+        }).
+        build();
+      picker.setVisible(true);
+    }
+
     $(currentSongList).on('contextmenu', function () {
       return false;
     })
@@ -415,10 +414,10 @@
           if (typeof response !== 'undefined' && 'mimeType' in response) {
             let mimeType = json.mimeType
             if (mimeType.includes('json')) {
-              loadPlaylists(gid)
+              loadConfig(gid)
             }
             else if (mimeType.includes('audio')) {
-              playlists = createNewPlaylists(json.name, gid)
+              config = createNewConfig(json.name, gid)
               refreshLists()
             }
             else if (mimeType.includes('google-apps.folder')) {
@@ -436,15 +435,15 @@
       }
       else {
         console.log('gid not found')
-        playlists = createEmptyPlaylists()
+        config = createEmptyConfig()
         refreshLists()
       }
     }
 
     function refreshLists() {
       $(playlistsList).empty()
-      for (let i = 0; i < playlists.length; i++) {
-        let playlist = playlists[i];
+      for (let i = 0; i < config.playlists.length; i++) {
+        let playlist = config.playlists[i];
         let li = document.createElement("li")
         li.className = 'playitem'
         let listContent = document.createElement("BUTTON")
@@ -463,14 +462,14 @@
             $(rightMenu).empty()
             let menuTitle = ['rename', 'delete']
             let menuCallback = [
-              function() {
+              function () {
                 let playlistName = prompt("New playlist name", "");
                 if (playlistName != null && playlistName.length > 0) {
                   playlist.name = playlistName
                   refreshLists()
                 }
-              }, 
-              function() {
+              },
+              function () {
                 removePlaylist(playlist)
               }]
             for (let i = 0; i < 2; i++) {
@@ -499,10 +498,10 @@
           li.style.backgroundColor = 'white'
         }
       }
-      if (displayPlaylistIndex < 0) {
-        displayPlaylistIndex = 0
+      if (config.playlistIndex < 0) {
+        config.playlistIndex = 0
       }
-      displayPlaylist = playlists[displayPlaylistIndex]
+      displayPlaylist = config.playlists[config.playlistIndex]
       refreshPlaylist()
     }
 
@@ -569,21 +568,21 @@
 
     function playlistListClick(index) {
       console.log("playlist index " + index + "clicked")
-      displayPlaylistIndex = index
-      displayPlaylist = playlists[index]
+      config.playlistIndex = index
+      displayPlaylist = config.playlists[index]
       refreshPlaylist()
     }
 
     function currentSongClick(index) {
       console.log("playitem index " + index + "clicked")
-      if (playitemIndex < currentSongList.children.length && playitemIndex >= 0) {
+      if (config.playitemIndex < currentSongList.children.length && config.playitemIndex >= 0) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'white'
       }
       currentPlaylist = displayPlaylist
       randomIndexArray = shuffleIndexArray(currentPlaylist.list.length)
-      playitemIndex = index
-      let playitem = currentPlaylist.list[playitemIndex]
-      displayPlayitemIndex = playitemIndex
+      config.playitemIndex = index
+      let playitem = currentPlaylist.list[config.playitemIndex]
+      displayPlayitemIndex = config.playitemIndex
       currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       loadMusic(playitem)
     }
@@ -593,22 +592,22 @@
       let index = displayPlaylist.list.indexOf(playitem)
       if (index > -1) {
         displayPlaylist.list.splice(index, 1)
-        playlists[displayPlaylistIndex] = displayPlaylist
+        config.playlists[config.playlistIndex] = displayPlaylist
         refreshPlaylist()
-        savePlaylists()
+        saveCurrentConfig()
       }
     }
     function removePlaylist(playlist) {
       console.log('remove playlist, name = ' + playlist.name)
-      let index = playlists.indexOf(playlist)
+      let index = config.playlists.indexOf(playlist)
       if (index > -1) {
-        playlists.splice(index, 1)
-        console.log('index = ' + index + ' displayIndex = ' + displayPlaylistIndex)
-        if (index <= displayPlaylistIndex) {
-          displayPlaylistIndex -= 1
+        config.playlists.splice(index, 1)
+        console.log('index = ' + index + ' displayIndex = ' + config.playlistIndex)
+        if (index <= config.playlistIndex) {
+          config.playlistIndex -= 1
         }
         refreshLists()
-        savePlaylists()
+        saveCurrentConfig()
       }
     }
 
@@ -632,12 +631,12 @@
           console.log('current playlist no music')
           return
         }
-        if (playitemIndex >= currentPlaylist.list.length || playitemIndex < 0) {
-          playitemIndex = 0
+        if (config.playitemIndex >= currentPlaylist.list.length || config.playitemIndex < 0) {
+          config.playitemIndex = 0
         }
         console.log('audioContext closed, try load');
-        let playitem = getPlayitem(playitemIndex)
-        console.log('displayPlayitemIndex = ' + displayPlayitemIndex)
+        //let playitem = getPlayitem(config.playitemIndex)
+        let playitem = currentPlaylist.list[config.playitemIndex]
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
         loadMusic(playitem)
       }
@@ -648,6 +647,30 @@
     function handleNextClick(event) {
       next(true)
     }
+
+    function setRandomMode(mode) {
+      config.randomMode = mode
+      if (config.randomMode) {
+        randomButton.textContent = 'Random'
+      }
+      else {
+        randomButton.textContent = 'No Random'
+        config.playitemIndex = displayPlayitemIndex
+      }
+    }
+    function setLoopMode(mode) {
+      config.loopMode = mode
+      if (config.loopMode == 0) {
+        loopButton.textContent = 'Loop'
+      }
+      else if (loopMode == 1) {
+        loopButton.textContent = 'Single Loop'
+      }
+      else {
+        loopButton.textContent = 'No Loop'
+      }
+    }
+
     function handleAddPlayitemClick(event) {
       let audioMimeType = "audio/mpeg,audio/flac,audio/mp4,audio/aac,video/mp4,application/x-flac,audio/x-flac,audio/webm,video/webm,audio/mpeg3,audio/x-mpeg-3,audio/ogg,application/ogg,audio/x-wav,audio/x-aiff,audio/basic";
       let view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).
@@ -677,7 +700,7 @@
           displayPlaylist.list.push(playitem)
         }
         refreshPlaylist()
-        savePlaylists()
+        saveCurrentConfig()
       }
     }
 
@@ -689,9 +712,9 @@
           name: playlistName,
           list: []
         }
-        playlists.push(playlist)
+        config.playlists.push(playlist)
         refreshLists()
-        savePlaylists()
+        saveCurrentConfig()
       }
     }
 
@@ -707,11 +730,11 @@
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'white'
       }
-      playitemIndex -= 1
-      if (playitemIndex < 0) {
-        playitemIndex = currentPlaylist.list.length - 1
+      config.playitemIndex -= 1
+      if (config.playitemIndex < 0) {
+        config.playitemIndex = currentPlaylist.list.length - 1
       }
-      let playitem = getPlayitem(playitemIndex)
+      let playitem = getPlayitem(config.playitemIndex)
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       }
@@ -722,18 +745,18 @@
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'white'
       }
-      playitemIndex = getNextPlayitemIndex()
-      if (playitemIndex == 0) {
-        if (!forceNext && loopMode == 2) {
+      config.playitemIndex = getNextPlayitemIndex()
+      if (config.playitemIndex == 0) {
+        if (!forceNext && config.loopMode == 2) {
           console.log('No loop reach end')
           playButton.textContent = 'play'
           return
         }
-        if (randomMode) {
+        if (config.randomMode) {
           shuffleIndexArray(currentPlaylist.list.length)
         }
       }
-      let playitem = getPlayitem(playitemIndex)
+      let playitem = getPlayitem(config.playitemIndex)
       if (displayPlaylist === currentPlaylist) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'orange'
       }
@@ -761,7 +784,7 @@
 
     function handSourceEnded(event) {
       console.log('source ended');
-      if (loopMode == 1) {
+      if (config.loopMode == 1) {
         console.log('single loop, seek to 0')
         seek(0)
       }
@@ -772,14 +795,14 @@
       }
     }
     function getNextPlayitemIndex() {
-      let newIndex = playitemIndex + 1
+      let newIndex = config.playitemIndex + 1
       if (newIndex >= currentPlaylist.list.length) {
         newIndex = 0
       }
       return newIndex
     }
     function getPlayitem(index) {
-      if (randomMode) {
+      if (config.randomMode) {
         index = randomIndexArray[index]
       }
       displayPlayitemIndex = index
@@ -787,7 +810,7 @@
     }
     function getPreloadPlayitem() {
       let index = getNextPlayitemIndex()
-      if (randomMode) {
+      if (config.randomMode) {
         index = randomIndexArray[index]
       }
       return currentPlaylist.list[index]
@@ -895,7 +918,7 @@
 
     function preloadMusic(playitem) {
       console.log('preload ' + playitem.gdID)
-      var accessToken = gapi.auth.getToken().access_token;
+      let accessToken = gapi.auth.getToken().access_token;
       preloadFileId = playitem.gdID
       preloadRequest = new XMLHttpRequest();
       preloadRequest.open('GET', 'https://www.googleapis.com/drive/v3/files/' + playitem.gdID + '?alt=media');
@@ -905,6 +928,7 @@
         console.log("preload onload");
         preloadResponse = preloadRequest.response
         preloadRequest = null
+        saveCurrentConfig()
       };
       preloadRequest.onerror = function () {
         console.log("preload onerror");
@@ -913,8 +937,8 @@
       preloadRequest.send();
     }
 
-    function loadPlaylists(fileId) {
-      console.log('start loadPlaylists')
+    function loadConfig(fileId) {
+      console.log('start loadConfig')
       var xhr = new XMLHttpRequest();
       xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
       //xhr.responseType = 'json';
@@ -924,7 +948,12 @@
         var status = xhr.status;
         if (status === 200) {
           let json = JSON.parse(xhr.response)
-          playlists = json
+          config = json
+          displayPlayitemIndex = config.playitemIndex
+          volumeInputer.value = config.volume * 100
+          volumeLabel.textContent = volumeInputer.value
+          setRandomMode(config.randomMode)
+          setLoopMode(config.loopMode)
           refreshLists()
         }
         else {
@@ -937,7 +966,19 @@
       xhr.send();
     }
 
-    function savePlaylists(data) {
+    function saveCurrentConfig() {
+      config.volume = volumeInputer.value / 100.0
+      if (config.randomMode) {
+        let newConfig = JSON.parse(JSON.stringify(config))
+        newConfig.playitemIndex = displayPlayitemIndex
+        saveConfig(newConfig)
+      }
+      else {
+        saveConfig(config)
+      }
+    }
+
+    function saveConfig(data) {
       if (currentGIDResponse == null) { return }
       if (blockSave) { return }
       let contentType = 'application/json'
@@ -968,12 +1009,12 @@
       xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary)
       xhr.responseType = 'json'
       xhr.onload = function () {
-        console.log('savePlaylists onload, response = ' + JSON.stringify(xhr.response))
+        console.log('saveConfig onload, response = ' + JSON.stringify(xhr.response))
       };
       xhr.onerror = function () {
-        console.log('savePlaylists onerror, error = ' + xhr.error)
+        console.log('saveConfig onerror, error = ' + xhr.error)
         alert('save playlists failure, undo previous edit.')
-        loadPlaylists(currentGID)
+        loadConfig(currentGID)
       };
       xhr.send(multipartRequestBody);
     }
@@ -984,7 +1025,7 @@
         name: fileName,
         mimeType: contentType
       }
-      let fileData = JSON.stringify(playlists)
+      let fileData = JSON.stringify(config)
 
       let boundary = 'GDUploadLine'
       let delimiter = "\r\n--" + boundary + "\r\n";
@@ -1007,10 +1048,11 @@
       xhr.setRequestHeader('Content-Type', 'multipart/related; boundary=' + boundary)
       xhr.responseType = 'json'
       xhr.onload = function () {
-        console.log('savePlaylists onload, response = ' + JSON.stringify(xhr.response))
+        redirectNewURL(xhr.response.id)
       };
       xhr.onerror = function () {
-        console.log('savePlaylists onerror, error = ' + xhr.error)
+        console.log('saveConfig onerror, error = ' + xhr.error)
+        alert('Save as file in drive failure')
       };
       xhr.send(multipartRequestBody);
     }
@@ -1034,6 +1076,14 @@
       xhr.send();
     }
 
+    function redirectNewURL(gid) {
+      let url = new URL(location.href)
+      let urlPara = new URLSearchParams('gid=' + gid)
+      url.search = urlPara
+      console.log('redirect to ' + url.href)
+      window.location.href = url.href
+    }
+
     function shuffleIndexArray(length) {
       let array = new Array(length)
       for (let i = 0; i < length; i++) {
@@ -1046,27 +1096,51 @@
       return array
     }
 
-    function createEmptyPlaylists() {
-      let playlists = [
-        {
-          name: 'unnamed playlist',
-          list: [
-          ]
-        }
-      ]
-      console.log('empty playlists = ' + JSON.stringify(playlists))
-      return playlists
+    function createEmptyConfig() {
+      let config = {
+        volume: 1,
+        loopMode: 0,
+        randomMode: true,
+        playitemIndex: -1,
+        playlistIndex: 0,
+        playlists: [
+          {
+            name: 'unnamed playlist',
+            list: []
+          }
+        ]
+      }
+      console.log('empty config = ' + JSON.stringify(config))
+      return config
     }
-    function createNewPlaylists(path, fileId) {
-      let jsonString = '[{"name":"unnamed playlist","list":[{"path":"' + path + '","gdID":"' + fileId + '"}]}]'
-      let playlists = JSON.parse(jsonString)
-      return playlists
+    function createNewConfig(path, fileId) {
+      let config = {
+        volume: 1,
+        loopMode: 0,
+        randomMode: true,
+        playitemIndex: -1,
+        playlistIndex: 0,
+        playlists: [
+          {
+            name: 'unnamed playlist',
+            list: [
+              {
+                path: path,
+                gdID: fileId
+              }
+            ]
+          }
+        ]
+      }
+      console.log('empty config = ' + JSON.stringify(config))
+      return config
     }
     function loadGDFolder(playlistName, gid) {
       gapi.client.drive.files.list({
         'q': "'" + gid + "' in parents"
       }).then(function (response) {
-        playlists = [{
+        config = createEmptyConfig()
+        let playlists = [{
           name: playlistName,
           list: []
         }]
@@ -1080,6 +1154,8 @@
             playlists[0].list.push(playitem)
           }
         }
+        config.playlists = playlists
+        console.log('loadGDFolder, config = ' + JSON.stringify(config))
         refreshLists()
       });
     }
