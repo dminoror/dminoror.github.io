@@ -191,7 +191,6 @@
 
     // Client ID and API key from the Developer Console
     var CLIENT_ID = '423335313231-giakunp57g1k5mavo5geh2uosq19p7n6.apps.googleusercontent.com';
-    var API_KEY = 'AIzaSyBAaSYAjPtehAICYMErbTdmQifmxJaLkx0';
 
     // Array of API discovery doc URLs for APIs used by the quickstart
     var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
@@ -693,7 +692,6 @@
         enableFeature(google.picker.Feature.MULTISELECT_ENABLED).
         setAppId(CLIENT_ID).
         setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token).
-        setDeveloperKey(API_KEY).
         setCallback(pickerCallback).
         build();
       picker.setVisible(true);
