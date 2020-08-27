@@ -420,7 +420,9 @@
             }
           }
           else {
-            infoLabel.textContent = 'No login, or you has no permission to access this file.'
+            if (gapi.auth.getToken() != null) {
+              infoLabel.textContent = 'You may no permission to access this file.'
+            }
           }
         })
       }
