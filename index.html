@@ -199,9 +199,7 @@
     // included, separated by spaces.
     //var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
     var SCOPES = [
-      'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.metadata',
-      'https://www.googleapis.com/auth/drive.appfolder'
+      'https://www.googleapis.com/auth/drive'
     ];
 
     var authorizeButton = document.getElementById('authorize_button');
@@ -354,7 +352,6 @@
      */
     function initClient() {
       gapi.client.init({
-        //apiKey: API_KEY,
         'client_id': CLIENT_ID,
         discoveryDocs: DISCOVERY_DOCS,
         'scope': SCOPES.join(' '),
@@ -1203,6 +1200,7 @@
      *  Sign out the user upon button click.
      */
     function handleSignoutClick(event) {
+      audioContext.suspend();
       gapi.auth2.getAuthInstance().signOut();
     }
 
