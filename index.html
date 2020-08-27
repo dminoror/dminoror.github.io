@@ -200,6 +200,7 @@
     //var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
     var SCOPES = [
       'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.metadata',
       'https://www.googleapis.com/auth/drive.appfolder'
     ];
 
@@ -940,10 +941,10 @@
 
     function loadConfig(fileId) {
       console.log('start loadConfig')
-      var xhr = new XMLHttpRequest();
+      let xhr = new XMLHttpRequest();
       xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
       //xhr.responseType = 'json';
-      var accessToken = gapi.auth.getToken().access_token;
+      let accessToken = gapi.auth.getToken().access_token;
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       xhr.onload = function () {
         var status = xhr.status;
