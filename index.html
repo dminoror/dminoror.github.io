@@ -224,7 +224,6 @@
 
     var blockSave = false
 
-    var gdAuthToken
     var currentGID
     var currentGIDResponse
 
@@ -362,7 +361,6 @@
       }).then(function () {
         // Listen for sign-in state changes.
         gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-
         //return
         // Handle the initial sign-in state.
         updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
@@ -382,19 +380,13 @@
       if (isSignedIn) {
         authorizeButton.style.display = 'none';
         signoutButton.style.display = 'block';
-        //appendPre(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
-        if (gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token.length > 0) {
-          //console.log("got accessToken " + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token);
-          //console.log("got accessToken " + gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token);
-          gdAuthToken = gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().id_token
-        }
-        infoLabel.textContent = '已登入'
+        infoLabel.textContent = 'Logined'
 
         fetchLocation()
       } else {
         authorizeButton.style.display = 'block';
         signoutButton.style.display = 'none';
-        infoLabel.textContent = '←請登入 Google Drive'
+        infoLabel.textContent = '←←←Please login Google account first.←←←'
 
         fetchLocation()
       }
