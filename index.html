@@ -171,9 +171,13 @@
       </div>
     </div>
 
-    <div style="position: fixed; bottom: 0px; right: 0px; width: 5%; background-color: blue;">
+    <div style="position: fixed; bottom: 0px; right: 0px; width: 5%;">
       <button style="float: right; vertical-align: bottom;" id="saveConfigButton">Save as...</button>
       <button style="float: right; vertical-align: bottom;" id="loadConfigButton">Load Config</button>
+      <button style="float: right; vertical-align: bottom;" id="gihubButton">
+        <img src="GitHub-Mark-120px-plus.png" alt="GitHub" style="width: 5vh; height: 5vh; object-fit: cover">
+        <label>Intro</label>
+      </button>
     </div>
 
     <div id="rightMenu" hidden="true"
@@ -284,6 +288,9 @@
         }).
         build();
       picker.setVisible(true);
+    }
+    document.getElementById('gihubButton').onclick = function () {
+      window.open('https://github.com/dminoror/gplayer')
     }
 
     $(currentSongList).on('contextmenu', function () {
