@@ -3,7 +3,8 @@
 gplayer is a web google drive audio player.</br>
 
 ## Intro </br>
- * Play your drive audio using Web audio api. Supported codec depending on browser, as far as known, Chrome and Firefox in macOS and Windows 10 can play common formats such as FLAC, AAC(M4A), MP3 and WAV.</br>
+ * Play drive audio using Web Audio API.</br>
+ * Supported codec depending on browser, as far as known, Chrome and Firefox in macOS and Windows 10 can play common formats such as FLAC, AAC(M4A), MP3 and WAV. </br>
  * Preload next audio after current audio downloaded.</br>
  * Multiple playlist.</br>
 
