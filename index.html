@@ -581,7 +581,7 @@
 
     function currentSongClick(index) {
       console.log("playitem index " + index + "clicked")
-      if (config.playitemIndex < currentSongList.children.length && config.playitemIndex >= 0) {
+      if (displayPlaylist == currentPlaylist && displayPlayitemIndex >= 0 && displayPlayitemIndex < currentPlaylist.list.length) {
         currentSongList.children[displayPlayitemIndex].style.backgroundColor = 'white'
       }
       currentPlaylist = displayPlaylist
