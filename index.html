@@ -236,8 +236,6 @@
     var isPlaying = false
     var startTime
     var config
-    // playlists
-    //var playitemIndex = -1
     var currentPlaylist
     var displayPlaylist
     //var displayPlaylistIndex = -1
@@ -950,7 +948,7 @@
       let accessToken = gapi.auth.getToken().access_token;
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       xhr.onload = function () {
-        var status = xhr.status;
+        let status = xhr.status;
         if (status === 200) {
           let json = JSON.parse(xhr.response)
           config = json
@@ -1066,11 +1064,11 @@
     }
 
     function getURL(url, callback) {
-      var xhr = new XMLHttpRequest();
+      let xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.responseType = 'json';
       xhr.onload = function () {
-        var status = xhr.status;
+        let status = xhr.status;
         if (status === 200) {
           callback(xhr.response, null);
         }
@@ -1167,13 +1165,6 @@
       });
     }
 
-
-    /**
-     * Download a file's content.
-     *
-     * @param {File} file Drive File instance.
-     * @param {Function} callback Function to call when the request is complete.
-     */
     function fetchFile(fileId, callback) {
       let request = gapi.client.drive.files.get({
         'fileId': fileId
@@ -1183,64 +1174,17 @@
       })
     }
 
-    function saveFile(blob) {
-      var fileName = 'Test.m4a'
-      var tempEl = document.createElement("a");
-      document.body.appendChild(tempEl);
-      tempEl.style = "display: none";
-      url = window.URL.createObjectURL(blob);
-      tempEl.href = url;
-      tempEl.download = fileName;
-      tempEl.click();
-      window.URL.revokeObjectURL(url);
-    }
-
-    /**
-     *  Sign in the user upon button click.
-     */
     function handleAuthClick(event) {
       gapi.auth2.getAuthInstance().signIn();
     }
-
-    /**
-     *  Sign out the user upon button click.
-     */
     function handleSignoutClick(event) {
       audioContext.suspend();
       gapi.auth2.getAuthInstance().signOut();
     }
-
-    /**
-     * Append a pre element to the body containing the given message
-     * as its text node. Used to display the results of the API call.
-     *
-     * @param {string} message Text to be placed in pre element.
-     */
     function appendPre(message) {
-      var pre = document.getElementById('content');
-      var textContent = document.createTextNode(message + '\n');
+      let pre = document.getElementById('content');
+      let textContent = document.createTextNode(message + '\n');
       pre.appendChild(textContent);
-    }
-
-    /**
-     * Print files.
-     */
-    function listFiles() {
-      gapi.client.drive.files.list({
-        'pageSize': 10,
-        'fields': "nextPageToken, files(id, name)"
-      }).then(function (response) {
-        appendPre('Files:');
-        var files = response.result.files;
-        if (files && files.length > 0) {
-          for (var i = 0; i < files.length; i++) {
-            var file = files[i];
-            appendPre(file.name + ' (' + file.id + ')');
-          }
-        } else {
-          appendPre('No files found.');
-        }
-      });
     }
 
   </script>
