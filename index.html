@@ -202,7 +202,8 @@
     // included, separated by spaces.
     //var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
     var SCOPES = [
-      'https://www.googleapis.com/auth/drive'
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/drive.install'
     ];
 
     var authorizeButton = document.getElementById('authorize_button');
@@ -398,12 +399,21 @@
       let urlString = location.href
       let url = new URL(urlString)
       let gid = url.searchParams.get('gid')
+      let ids
+      if (gid == null) {
+         let state = url.searchParams.get('state')
+         if (state != null) {
+            state = JSON.parse(decodeURIComponent(state))
+            gid = state.ids[0]
+            ids = state.ids
+         }
+      }
       if (gid != null) {
         currentGID = gid
         fetchFile(gid, function (response) {
           let json = response
           currentGIDResponse = response
-          console.log('response = ' + response)
+          console.log('mimeType = ' + response.mimeType)
           if (typeof response !== 'undefined' && 'mimeType' in response) {
             let mimeType = json.mimeType
             if (mimeType.includes('json')) {
@@ -411,6 +421,20 @@
             }
             else if (mimeType.includes('audio')) {
               config = createNewConfig(json.name, gid)
+              if (ids != null) {
+                 for (let i = 1; i < ids.length; i++) {
+                    fetchFile(ids[i], function (resp) {
+                       if (resp.mimeType.includes('audio')) {
+                          let playitem = {
+                             path: resp.name,
+                             gdID: resp.id
+                          }
+                          config.playlists[0].list.push(playitem)
+                          refreshLists()
+                       }
+                    })
+                 }
+              }
               refreshLists()
             }
             else if (mimeType.includes('google-apps.folder')) {
