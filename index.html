@@ -277,7 +277,6 @@
         addView(view).
         setAppId(CLIENT_ID).
         setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token).
-        setDeveloperKey(API_KEY).
         setCallback(function (data) {
           if (data.action == google.picker.Action.PICKED) {
             let file = data.docs[0]
@@ -401,12 +400,12 @@
       let gid = url.searchParams.get('gid')
       let ids
       if (gid == null) {
-         let state = url.searchParams.get('state')
-         if (state != null) {
-            state = JSON.parse(decodeURIComponent(state))
-            gid = state.ids[0]
-            ids = state.ids
-         }
+        let state = url.searchParams.get('state')
+        if (state != null) {
+          state = JSON.parse(decodeURIComponent(state))
+          gid = state.ids[0]
+          ids = state.ids
+        }
       }
       if (gid != null) {
         currentGID = gid
@@ -420,25 +419,24 @@
               loadConfig(gid)
             }
             else if (mimeType.includes('audio')) {
-              config = createNewConfig(json.name, gid)
-              if (ids != null) {
-                 for (let i = 1; i < ids.length; i++) {
-                    fetchFile(ids[i], function (resp) {
-                       if (resp.mimeType.includes('audio')) {
-                          let playitem = {
-                             path: resp.name,
-                             gdID: resp.id
-                          }
-                          config.playlists[0].list.push(playitem)
-                          refreshLists()
-                       }
-                    })
-                 }
-              }
+              config = createEmptyConfig()
+              let playitem = createPlayitem(response)
+              config.playlists[0].list.push(playitem)
               refreshLists()
+              if (ids != null) {
+                fetchGIDList(ids, 1, config.playlists[0].list)
+              }
             }
             else if (mimeType.includes('google-apps.folder')) {
-              loadGDFolder(json.name, gid)
+              config = createEmptyConfig()
+              loadGDFolder(gid, function(resp, playitemList) {
+                let playlists = [{
+                  name: response.name,
+                  list: playitemList
+                }]
+                config.playlists = playlists
+                refreshLists()
+              })
             }
             else {
               console.log('unknown file type')
@@ -457,6 +455,41 @@
         config = createEmptyConfig()
         refreshLists()
       }
+    }
+
+    function fetchGIDList(gids, index, targetList) {
+      fetchFile(gids[index], function (response) {
+        if (typeof response !== 'undefined' && 'mimeType' in response) {
+          let mimeType = response.mimeType
+          let playitem = createPlayitem(response)
+          if (playitem != null) {
+            targetList.push(playitem)
+            index += 1
+            if (index < gids.length) {
+              fetchGIDList(gids, index, targetList)
+            }
+          }
+          else if (mimeType.includes('google-apps.folder')) {
+            loadGDFolder(gids[index], function(response, playitemList) {
+              Array.prototype.push.apply(targetList, playitemList)
+              index += 1
+              if (index < gids.length) {
+                fetchGIDList(gids, index, targetList)
+              }
+            })
+          }
+        }
+        else {
+          if (gapi.auth.getToken() != null) {
+            infoLabel.textContent = 'You may no permission to access this file.'
+          }
+          index += 1
+          if (index < gids.length) {
+            fetchGIDList(gids, index, targetList)
+          }
+        }
+        refreshLists()
+      })
     }
 
     function refreshLists() {
@@ -699,32 +732,51 @@
       }
     }
 
+    var lastPickerFolder = null
     function handleAddPlayitemClick(event) {
       let audioMimeType = "audio/mpeg,audio/flac,audio/mp4,audio/aac,video/mp4,application/x-flac,audio/x-flac,audio/webm,video/webm,audio/mpeg3,audio/x-mpeg-3,audio/ogg,application/ogg,audio/x-wav,audio/x-aiff,audio/basic";
-      let view = new google.picker.DocsView(google.picker.ViewId.FOLDERS).
+      let picker = new google.picker.PickerBuilder()
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+        .setAppId(CLIENT_ID)
+        .setCallback(pickerCallback)
+        .setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token)
+      if (lastPickerFolder != null) {
+        let lastFolderView = new google.picker.DocsView(google.picker.ViewId.DOCS).
+          setParent(lastPickerFolder).
+          setIncludeFolders(true).
+          setSelectFolderEnabled(true).
+          setMode('LIST').
+          setMimeTypes(audioMimeType).
+          setLabel('last accessed')
+        picker.addView(lastFolderView)
+      }
+      let rootView = new google.picker.DocsView(google.picker.ViewId.DOCS).
         setParent('root').
         setIncludeFolders(true).
-        setSelectFolderEnabled(false).
+        setSelectFolderEnabled(true).
         setMode('LIST').
-        setMimeTypes(audioMimeType)
-      let picker = new google.picker.PickerBuilder().
-        addView(view).
-        enableFeature(google.picker.Feature.MULTISELECT_ENABLED).
-        setAppId(CLIENT_ID).
-        setOAuthToken(gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token).
-        setCallback(pickerCallback).
-        build();
-      picker.setVisible(true);
+        setMimeTypes(audioMimeType).
+        setLabel('root')
+      picker.addView(rootView)
+      picker = picker.build()
+      picker.setVisible(true)
     }
     function pickerCallback(data) {
       if (data.action == google.picker.Action.PICKED) {
         for (let i = 0; i < data.docs.length; i++) {
           let file = data.docs[i]
-          let playitem = {
-            path: file.name,
-            gdID: file.id
+          let playitem = createPlayitem(file)
+          if (playitem != null) {
+            displayPlaylist.list.push(playitem)
           }
-          displayPlaylist.list.push(playitem)
+          else if (file.mimeType.includes('google-apps.folder')) {
+            loadGDFolder(file.id, function(response, playitemList) {
+              Array.prototype.push.apply(displayPlaylist.list, playitemList)
+              refreshLists()
+              saveCurrentConfig()
+            })
+          }
+          lastPickerFolder = file.parentId
         }
         refreshPlaylist()
         saveCurrentConfig()
@@ -1143,50 +1195,31 @@
       console.log('empty config = ' + JSON.stringify(config))
       return config
     }
-    function createNewConfig(path, fileId) {
-      let config = {
-        volume: 1,
-        loopMode: 0,
-        randomMode: true,
-        playitemIndex: -1,
-        playlistIndex: 0,
-        playlists: [
-          {
-            name: 'unnamed playlist',
-            list: [
-              {
-                path: path,
-                gdID: fileId
-              }
-            ]
-          }
-        ]
-      }
-      console.log('empty config = ' + JSON.stringify(config))
-      return config
-    }
-    function loadGDFolder(playlistName, gid) {
+    function loadGDFolder(gid, callback) {
       gapi.client.drive.files.list({
         'q': "'" + gid + "' in parents"
       }).then(function (response) {
-        config = createEmptyConfig()
-        let playlists = [{
-          name: playlistName,
-          list: []
-        }]
+        let playitemList = []
         for (let i = 0; i < response.result.files.length; i++) {
-          let file = response.result.files[i]
-          if (file.mimeType.includes('audio')) {
-            let playitem = {
-              path: response.result.files[i].name,
-              gdID: response.result.files[i].id
-            }
-            playlists[0].list.push(playitem)
+          let playitem = createPlayitem(response.result.files[i])
+          if (playitem != null) {
+            playitemList.push(playitem)
           }
         }
-        config.playlists = playlists
-        refreshLists()
+        callback(response, playitemList)
       });
+    }
+    function createPlayitem(gdResponse) {
+      if (gdResponse.mimeType.includes('audio')) {
+        let playitem = {
+          path: gdResponse.name,
+          gdID: gdResponse.id
+        }
+        return playitem
+      }
+      else {
+        return null
+      }
     }
 
     function fetchFile(fileId, callback) {
