@@ -980,7 +980,7 @@
         console.log("request onload");
         handleAudioData(currentRequest.response)
         currentRequest = null
-      };
+      }
       currentRequest.onerror = function () {
         console.log("request onerror");
         currentRequest = null
@@ -989,7 +989,12 @@
         if (errorFetchIndex < errorFetchCount) {
           next(false)
         }
-      };
+      }
+      currentRequest.onprogress = function(event) {
+        let percent = event.loaded / event.total * 100
+        infoLabel.textContent = 'Loading ' + playitem.path + ' ... ' + Math.round(percent) + '%'
+        console.log(percent)
+      }
       currentRequest.send();
     }
 
