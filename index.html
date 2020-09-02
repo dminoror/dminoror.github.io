@@ -226,6 +226,7 @@
     var rightMenu = document.getElementById('rightMenu')
 
     var blockSave = false
+    var configVersion = '1.0'
 
     var currentGID
     var currentGIDResponse
@@ -373,6 +374,8 @@
         nextButton.onclick = handleNextClick
         addPlayitemButton.onclick = handleAddPlayitemClick
         addPlaylistButton.onclick = handleAddPlaylistClick
+
+
       }, function (error) {
         appendPre(JSON.stringify(error, null, 2));
       });
@@ -429,7 +432,7 @@
             }
             else if (mimeType.includes('google-apps.folder')) {
               config = createEmptyConfig()
-              loadGDFolder(gid, function(resp, playitemList) {
+              loadGDFolder(gid, function (resp, playitemList) {
                 let playlists = [{
                   name: response.name,
                   list: playitemList
@@ -470,7 +473,7 @@
             }
           }
           else if (mimeType.includes('google-apps.folder')) {
-            loadGDFolder(gids[index], function(response, playitemList) {
+            loadGDFolder(gids[index], function (response, playitemList) {
               Array.prototype.push.apply(targetList, playitemList)
               index += 1
               if (index < gids.length) {
@@ -770,7 +773,7 @@
             displayPlaylist.list.push(playitem)
           }
           else if (file.mimeType.includes('google-apps.folder')) {
-            loadGDFolder(file.id, function(response, playitemList) {
+            loadGDFolder(file.id, function (response, playitemList) {
               Array.prototype.push.apply(displayPlaylist.list, playitemList)
               refreshLists()
               saveCurrentConfig()
@@ -1020,7 +1023,6 @@
       console.log('start loadConfig')
       let xhr = new XMLHttpRequest();
       xhr.open('GET', 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media');
-      //xhr.responseType = 'json';
       let accessToken = gapi.auth.getToken().access_token;
       xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
       xhr.onload = function () {
@@ -1066,7 +1068,11 @@
       let contentType = 'application/json'
       let metadata = {
         name: currentGIDResponse.name,
-        mimeType: contentType
+        mimeType: contentType,
+        appProperties: {
+          'desc': 'gplayer',
+          'version': configVersion
+        }
       }
       let fileData = JSON.stringify(data)
 
@@ -1105,7 +1111,11 @@
       let contentType = 'application/json'
       let metadata = {
         name: fileName,
-        mimeType: contentType
+        mimeType: contentType,
+        appProperties: {
+          desc: 'gplayer',
+          version: configVersion
+        }
       }
       let fileData = JSON.stringify(config)
 
@@ -1224,9 +1234,11 @@
 
     function fetchFile(fileId, callback) {
       let request = gapi.client.drive.files.get({
-        'fileId': fileId
+        'fileId': fileId,
+        'fields': 'name,id,appProperties,mimeType'
       })
       request.execute(function (response) {
+        //console.log('fetchFile = ' + JSON.stringify(response))
         callback(response.result)
       })
     }
